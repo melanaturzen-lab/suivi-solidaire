@@ -1,247 +1,179 @@
-const express = require("express");
-const cors = require("cors");
-const Database = require("better-sqlite3");
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
+const express = require("express")
+const cors = require("cors")
+const jwt = require("jsonwebtoken")
+const bcrypt = require("bcryptjs")
+const Database = require("better-sqlite3")
 
-const app = express();
+const app = express()
+app.use(cors())
+app.use(express.json())
 
-const PORT = process.env.PORT || 3001;
-const JWT_SECRET = process.env.JWT_SECRET || "dev-secret";
-const DB_PATH = process.env.DB_PATH || "./database.sqlite";
+// 🔐 Clé JWT
+const SECRET = "mon_secret_super_securise"
 
-app.use(cors());
-app.use(express.json());
+// 📦 Base SQLite (compatible Render)
+const dbPath = process.env.DB_PATH || "/tmp/database.sqlite"
+const db = new Database(dbPath)
 
-const db = new Database(DB_PATH);
+// ==============================
+// 📊 TABLES
+// ==============================
 
-// Création des tables
-db.prepare(`
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nom TEXT,
-    email TEXT UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
-    role TEXT DEFAULT 'benevole'
-  )
-`).run();
+db.exec(`
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  email TEXT UNIQUE,
+  password TEXT
+)
 
-db.prepare(`
-  CREATE TABLE IF NOT EXISTS beneficiaires (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nom TEXT NOT NULL,
-    age TEXT,
-    profil TEXT,
-    ville TEXT,
-    priorite TEXT,
-    besoin TEXT,
-    telephone TEXT,
-    email TEXT,
-    adresse TEXT,
-    referent TEXT,
-    notes TEXT
-  )
-`).run();
+CREATE TABLE IF NOT EXISTS beneficiaires (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  nom TEXT,
+  age INTEGER,
+  situation TEXT
+)
 
-db.prepare(`
-  CREATE TABLE IF NOT EXISTS actions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    beneficiaire_id INTEGER NOT NULL,
-    date TEXT,
-    type TEXT,
-    description TEXT,
-    FOREIGN KEY (beneficiaire_id) REFERENCES beneficiaires(id)
-  )
-`).run();
+CREATE TABLE IF NOT EXISTS actions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  beneficiaire_id INTEGER,
+  texte TEXT,
+  date TEXT
+)
+`)
+
+// ==============================
+// 🔐 AUTH MIDDLEWARE
+// ==============================
 
 function authMiddleware(req, res, next) {
-  const authHeader = req.headers.authorization;
+  const token = req.headers.authorization?.split(" ")[1]
 
-  if (!authHeader) {
-    return res.status(401).json({ error: "Token manquant" });
-  }
-
-  const token = authHeader.split(" ")[1];
+  if (!token) return res.status(401).json({ error: "Token manquant" })
 
   try {
-    const user = jwt.verify(token, JWT_SECRET);
-    req.user = user;
-    next();
+    const decoded = jwt.verify(token, SECRET)
+    req.user = decoded
+    next()
   } catch {
-    return res.status(401).json({ error: "Token invalide ou expiré" });
+    res.status(403).json({ error: "Token invalide" })
   }
 }
 
-app.get("/", (req, res) => {
-  res.send("Backend Suivi Solidaire opérationnel");
-});
+// ==============================
+// 🔐 AUTH ROUTES
+// ==============================
 
-app.post("/api/auth/register", async (req, res) => {
-  const { nom, email, password } = req.body;
+// Inscription
+app.post("/api/register", async (req, res) => {
+  const { email, password } = req.body
 
-  if (!email || !password) {
-    return res.status(400).json({ error: "Email et mot de passe obligatoires" });
-  }
+  const hash = await bcrypt.hash(password, 10)
 
   try {
-    const passwordHash = await bcrypt.hash(password, 10);
+    db.prepare("INSERT INTO users (email, password) VALUES (?, ?)")
+      .run(email, hash)
 
-    const result = db
-      .prepare("INSERT INTO users (nom, email, password_hash) VALUES (?, ?, ?)")
-      .run(nom, email, passwordHash);
-
-    res.json({ success: true, id: result.lastInsertRowid });
-  } catch (error) {
-    res.status(400).json({ error: "Utilisateur déjà existant ou données invalides" });
+    res.json({ message: "Utilisateur créé" })
+  } catch {
+    res.status(400).json({ error: "Email déjà utilisé" })
   }
-});
+})
 
-app.post("/api/auth/login", async (req, res) => {
-  const { email, password } = req.body;
+// Connexion
+app.post("/api/login", (req, res) => {
+  const { email, password } = req.body
 
-  const user = db.prepare("SELECT * FROM users WHERE email = ?").get(email);
+  const user = db.prepare("SELECT * FROM users WHERE email = ?")
+    .get(email)
 
-  if (!user) {
-    return res.status(401).json({ error: "Identifiants incorrects" });
-  }
+  if (!user) return res.status(401).json({ error: "Utilisateur introuvable" })
 
-  const valid = await bcrypt.compare(password, user.password_hash);
+  const valid = bcrypt.compareSync(password, user.password)
 
-  if (!valid) {
-    return res.status(401).json({ error: "Identifiants incorrects" });
-  }
+  if (!valid) return res.status(401).json({ error: "Mot de passe incorrect" })
 
-  const token = jwt.sign(
-    {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-    },
-    JWT_SECRET,
-    { expiresIn: "8h" }
-  );
+  const token = jwt.sign({ id: user.id }, SECRET)
 
-  res.json({
-    token,
-    user: {
-      id: user.id,
-      nom: user.nom,
-      email: user.email,
-      role: user.role,
-    },
-  });
-});
+  res.json({ token })
+})
 
-app.get("/api/me", authMiddleware, (req, res) => {
-  res.json(req.user);
-});
+// ==============================
+// 👥 BENEFICIAIRES
+// ==============================
 
+// Liste
 app.get("/api/beneficiaires", authMiddleware, (req, res) => {
-  const rows = db
-    .prepare("SELECT * FROM beneficiaires ORDER BY id DESC")
-    .all();
+  const data = db.prepare("SELECT * FROM beneficiaires").all()
+  res.json(data)
+})
 
-  res.json(rows);
-});
-
+// Ajouter
 app.post("/api/beneficiaires", authMiddleware, (req, res) => {
-  const b = req.body;
+  const { nom, age, situation } = req.body
 
-  const result = db
-    .prepare(`
-      INSERT INTO beneficiaires
-      (nom, age, profil, ville, priorite, besoin, telephone, email, adresse, referent, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `)
-    .run(
-      b.nom,
-      b.age,
-      b.profil,
-      b.ville,
-      b.priorite,
-      b.besoin,
-      b.telephone,
-      b.email,
-      b.adresse,
-      b.referent,
-      b.notes
-    );
+  const result = db.prepare(
+    "INSERT INTO beneficiaires (nom, age, situation) VALUES (?, ?, ?)"
+  ).run(nom, age, situation)
 
-  res.json({ id: result.lastInsertRowid, ...b });
-});
+  res.json({ id: result.lastInsertRowid })
+})
 
+// Modifier
 app.put("/api/beneficiaires/:id", authMiddleware, (req, res) => {
-  const b = req.body;
+  const { nom, age, situation } = req.body
 
   db.prepare(`
-    UPDATE beneficiaires SET
-      nom = ?,
-      age = ?,
-      profil = ?,
-      ville = ?,
-      priorite = ?,
-      besoin = ?,
-      telephone = ?,
-      email = ?,
-      adresse = ?,
-      referent = ?,
-      notes = ?
+    UPDATE beneficiaires
+    SET nom = ?, age = ?, situation = ?
     WHERE id = ?
-  `).run(
-    b.nom,
-    b.age,
-    b.profil,
-    b.ville,
-    b.priorite,
-    b.besoin,
-    b.telephone,
-    b.email,
-    b.adresse,
-    b.referent,
-    b.notes,
-    req.params.id
-  );
+  `).run(nom, age, situation, req.params.id)
 
-  res.json({ success: true });
-});
+  res.json({ message: "Modifié" })
+})
 
+// Supprimer
 app.delete("/api/beneficiaires/:id", authMiddleware, (req, res) => {
-  db.prepare("DELETE FROM actions WHERE beneficiaire_id = ?").run(req.params.id);
-  db.prepare("DELETE FROM beneficiaires WHERE id = ?").run(req.params.id);
+  db.prepare("DELETE FROM beneficiaires WHERE id = ?")
+    .run(req.params.id)
 
-  res.json({ success: true });
-});
+  res.json({ message: "Supprimé" })
+})
 
-app.get("/api/beneficiaires/:id/actions", authMiddleware, (req, res) => {
-  const rows = db
-    .prepare(`
-      SELECT * FROM actions
-      WHERE beneficiaire_id = ?
-      ORDER BY date DESC, id DESC
-    `)
-    .all(req.params.id);
+// ==============================
+// 📜 ACTIONS / HISTORIQUE
+// ==============================
 
-  res.json(rows);
-});
+// Liste actions
+app.get("/api/actions/:beneficiaire_id", authMiddleware, (req, res) => {
+  const data = db.prepare(`
+    SELECT * FROM actions
+    WHERE beneficiaire_id = ?
+    ORDER BY date DESC
+  `).all(req.params.beneficiaire_id)
 
-app.post("/api/beneficiaires/:id/actions", authMiddleware, (req, res) => {
-  const a = req.body;
+  res.json(data)
+})
 
-  const result = db
-    .prepare(`
-      INSERT INTO actions
-      (beneficiaire_id, date, type, description)
-      VALUES (?, ?, ?, ?)
-    `)
-    .run(req.params.id, a.date, a.type, a.description);
+// Ajouter action
+app.post("/api/actions", authMiddleware, (req, res) => {
+  const { beneficiaire_id, texte } = req.body
 
-  res.json({
-    id: result.lastInsertRowid,
-    beneficiaire_id: req.params.id,
-    ...a,
-  });
-});
+  const date = new Date().toISOString()
+
+  db.prepare(`
+    INSERT INTO actions (beneficiaire_id, texte, date)
+    VALUES (?, ?, ?)
+  `).run(beneficiaire_id, texte, date)
+
+  res.json({ message: "Action ajoutée" })
+})
+
+// ==============================
+// 🚀 START SERVER
+// ==============================
+
+const PORT = process.env.PORT || 3000
 
 app.listen(PORT, () => {
-  console.log(`Backend lancé sur le port ${PORT}`);
-});
+  console.log("Serveur démarré sur le port " + PORT)
+})
