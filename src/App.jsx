@@ -65,7 +65,7 @@ export default function App() {
       }
 
       const data = await response.json();
-      setBeneficiaires(data);
+      setBeneficiaires(Array.isArray(data) ? data : []);
     } catch (error) {
       alert("Erreur : impossible de charger les bénéficiaires.");
       console.error(error);
@@ -297,7 +297,7 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders }) {
       });
 
       const data = await response.json();
-      setActions(data);
+      setActions(Array.isArray(data) ? data : []);
     } catch (error) {
       alert("Erreur : impossible de charger l’historique.");
       console.error(error);
@@ -343,11 +343,16 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders }) {
     const method = editId === null ? "POST" : "PUT";
 
     try {
-      await fetch(url, {
+      const response = await fetch(url, {
         method,
         headers: authHeaders(),
         body: JSON.stringify(form),
       });
+
+      if (!response.ok) {
+        alert("Erreur serveur lors de l’enregistrement.");
+        return;
+      }
 
       setForm(emptyForm);
       setEditId(null);
@@ -367,10 +372,15 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders }) {
     if (!confirmation) return;
 
     try {
-      await fetch(`${API_URL}/beneficiaires/${beneficiaire.id}`, {
+      const response = await fetch(`${API_URL}/beneficiaires/${beneficiaire.id}`, {
         method: "DELETE",
         headers: authHeaders(),
       });
+
+      if (!response.ok) {
+        alert("Erreur serveur lors de la suppression.");
+        return;
+      }
 
       setSelected(null);
       setActions([]);
@@ -390,11 +400,16 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders }) {
     }
 
     try {
-      await fetch(`${API_URL}/beneficiaires/${selected.id}/actions`, {
+      const response = await fetch(`${API_URL}/beneficiaires/${selected.id}/actions`, {
         method: "POST",
         headers: authHeaders(),
         body: JSON.stringify(actionForm),
       });
+
+      if (!response.ok) {
+        alert("Erreur serveur lors de l’ajout de l’action.");
+        return;
+      }
 
       setActionForm(emptyAction);
       await chargerActions(selected.id);
