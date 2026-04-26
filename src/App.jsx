@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 
-const API_URL = "http://localhost:3001/api";
+const API_URL = "https://suivi-solidaire-backend.onrender.com/api";
 
 const emptyForm = {
   nom: "",
@@ -87,9 +87,7 @@ export default function App() {
       <div style={{ display: "flex" }}>
         <aside style={{ width: 260, background: "white", padding: 20, minHeight: "100vh" }}>
           <h2>Suivi Solidaire</h2>
-          <p style={{ color: "#666" }}>
-            Connecté : {user?.email}
-          </p>
+          <p style={{ color: "#666" }}>Connecté : {user?.email}</p>
 
           <button onClick={() => setPage("dashboard")}>Tableau de bord</button>
           <button onClick={() => setPage("beneficiaires")}>Bénéficiaires</button>
@@ -120,7 +118,10 @@ export default function App() {
             />
           )}
 
-          {!loading && page === "actions" && <Actions />}
+          {!loading && page === "actions" && (
+            <Actions beneficiaires={beneficiaires} authHeaders={authHeaders} />
+          )}
+
           {!loading && page === "documents" && <Documents />}
           {!loading && page === "securite" && <Securite />}
         </main>
@@ -161,6 +162,7 @@ function AuthPage({ setToken, setUser }) {
       if (mode === "register") {
         alert("Compte créé. Tu peux maintenant te connecter.");
         setMode("login");
+        setForm({ nom: "", email: "", password: "" });
         return;
       }
 
@@ -230,9 +232,7 @@ function AuthPage({ setToken, setUser }) {
           onClick={() => setMode(mode === "login" ? "register" : "login")}
           style={{ background: "#eeeeee" }}
         >
-          {mode === "login"
-            ? "Créer un compte"
-            : "J’ai déjà un compte"}
+          {mode === "login" ? "Créer un compte" : "J’ai déjà un compte"}
         </button>
       </form>
 
@@ -251,7 +251,7 @@ function Dashboard({ beneficiaires }) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
         <Card title="Bénéficiaires" value={beneficiaires.length} />
         <Card title="Situations urgentes" value={urgents} />
-        <Card title="Connexion" value="Sécurisée" />
+        <Card title="Backend" value="En ligne" />
       </div>
     </>
   );
@@ -276,7 +276,7 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders }) {
   const [actionForm, setActionForm] = useState(emptyAction);
 
   const filtered = beneficiaires.filter((b) =>
-    `${b.nom} ${b.ville} ${b.profil} ${b.besoin}`
+    `${b.nom || ""} ${b.ville || ""} ${b.profil || ""} ${b.besoin || ""}`
       .toLowerCase()
       .includes(search.toLowerCase())
   );
@@ -294,12 +294,17 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders }) {
   }, [selected]);
 
   async function chargerActions(beneficiaireId) {
-    const response = await fetch(`${API_URL}/beneficiaires/${beneficiaireId}/actions`, {
-      headers: authHeaders(),
-    });
+    try {
+      const response = await fetch(`${API_URL}/beneficiaires/${beneficiaireId}/actions`, {
+        headers: authHeaders(),
+      });
 
-    const data = await response.json();
-    setActions(data);
+      const data = await response.json();
+      setActions(data);
+    } catch (error) {
+      alert("Erreur : impossible de charger l’historique.");
+      console.error(error);
+    }
   }
 
   function ouvrirAjout() {
@@ -329,7 +334,7 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders }) {
 
   async function enregistrer() {
     if (!form.nom || !form.age || !form.profil) {
-      alert("Merci de remplir au moins le nom, l'âge et le profil.");
+      alert("Merci de remplir au moins le nom, l’âge et le profil.");
       return;
     }
 
@@ -340,17 +345,21 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders }) {
 
     const method = editId === null ? "POST" : "PUT";
 
-    await fetch(url, {
-      method,
-      headers: authHeaders(),
-      body: JSON.stringify(form),
-    });
+    try {
+      await fetch(url, {
+        method,
+        headers: authHeaders(),
+        body: JSON.stringify(form),
+      });
 
-    setForm(emptyForm);
-    setEditId(null);
-    setShowForm(false);
-
-    await chargerBeneficiaires();
+      setForm(emptyForm);
+      setEditId(null);
+      setShowForm(false);
+      await chargerBeneficiaires();
+    } catch (error) {
+      alert("Erreur : impossible d’enregistrer.");
+      console.error(error);
+    }
   }
 
   async function supprimer(beneficiaire) {
@@ -360,14 +369,19 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders }) {
 
     if (!confirmation) return;
 
-    await fetch(`${API_URL}/beneficiaires/${beneficiaire.id}`, {
-      method: "DELETE",
-      headers: authHeaders(),
-    });
+    try {
+      await fetch(`${API_URL}/beneficiaires/${beneficiaire.id}`, {
+        method: "DELETE",
+        headers: authHeaders(),
+      });
 
-    setSelected(null);
-    setActions([]);
-    await chargerBeneficiaires();
+      setSelected(null);
+      setActions([]);
+      await chargerBeneficiaires();
+    } catch (error) {
+      alert("Erreur : impossible de supprimer.");
+      console.error(error);
+    }
   }
 
   async function ajouterAction() {
@@ -378,14 +392,19 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders }) {
       return;
     }
 
-    await fetch(`${API_URL}/beneficiaires/${selected.id}/actions`, {
-      method: "POST",
-      headers: authHeaders(),
-      body: JSON.stringify(actionForm),
-    });
+    try {
+      await fetch(`${API_URL}/beneficiaires/${selected.id}/actions`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify(actionForm),
+      });
 
-    setActionForm(emptyAction);
-    await chargerActions(selected.id);
+      setActionForm(emptyAction);
+      await chargerActions(selected.id);
+    } catch (error) {
+      alert("Erreur : impossible d’ajouter l’action.");
+      console.error(error);
+    }
   }
 
   return (
@@ -436,25 +455,29 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders }) {
           )}
 
           <div style={{ marginTop: 20 }}>
-            {filtered.map((b) => (
-              <div
-                key={b.id}
-                onClick={() => setSelected(b)}
-                style={{
-                  background: selected?.id === b.id ? "#eef3ff" : "white",
-                  padding: 20,
-                  borderRadius: 12,
-                  marginBottom: 15,
-                  cursor: "pointer",
-                  border: selected?.id === b.id ? "2px solid #2f6fed" : "1px solid #ddd",
-                }}
-              >
-                <h3>{b.nom} — {b.age} ans</h3>
-                <p><strong>Profil :</strong> {b.profil}</p>
-                <p><strong>Ville :</strong> {b.ville}</p>
-                <p><strong>Priorité :</strong> {b.priorite}</p>
-              </div>
-            ))}
+            {filtered.length === 0 ? (
+              <p>Aucun bénéficiaire trouvé.</p>
+            ) : (
+              filtered.map((b) => (
+                <div
+                  key={b.id}
+                  onClick={() => setSelected(b)}
+                  style={{
+                    background: selected?.id === b.id ? "#eef3ff" : "white",
+                    padding: 20,
+                    borderRadius: 12,
+                    marginBottom: 15,
+                    cursor: "pointer",
+                    border: selected?.id === b.id ? "2px solid #2f6fed" : "1px solid #ddd",
+                  }}
+                >
+                  <h3>{b.nom} — {b.age} ans</h3>
+                  <p><strong>Profil :</strong> {b.profil}</p>
+                  <p><strong>Ville :</strong> {b.ville}</p>
+                  <p><strong>Priorité :</strong> {b.priorite}</p>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
@@ -485,6 +508,7 @@ function FicheDetaillee({
     return (
       <div style={{ background: "white", padding: 25, borderRadius: 12 }}>
         <h2>Aucun bénéficiaire sélectionné</h2>
+        <p>Ajoute un bénéficiaire ou sélectionne une fiche.</p>
       </div>
     );
   }
@@ -607,7 +631,7 @@ function Securite() {
   return (
     <>
       <h1>Confidentialité</h1>
-      <p>Connexion sécurisée, mot de passe chiffré et token JWT.</p>
+      <p>Connexion sécurisée, mot de passe chiffré et API protégée par token.</p>
     </>
   );
 }
