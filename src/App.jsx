@@ -118,10 +118,7 @@ export default function App() {
             />
           )}
 
-          {!loading && page === "actions" && (
-            <Actions beneficiaires={beneficiaires} authHeaders={authHeaders} />
-          )}
-
+          {!loading && page === "actions" && <Actions />}
           {!loading && page === "documents" && <Documents />}
           {!loading && page === "securite" && <Securite />}
         </main>
