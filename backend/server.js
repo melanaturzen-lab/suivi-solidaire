@@ -56,6 +56,7 @@ app.post("/api/auth/register", async (req, res) => {
           nom: nom || "",
           email,
           password: passwordHash,
+          role: "benevole",
         },
       ])
       .select()
@@ -120,6 +121,7 @@ app.get("/api/beneficiaires", authMiddleware, async (req, res) => {
     .order("created_at", { ascending: false });
 
   if (error) {
+    console.error("Erreur get beneficiaires:", error);
     return res.status(500).json({ error: error.message });
   }
 
@@ -150,7 +152,7 @@ app.post("/api/beneficiaires", authMiddleware, async (req, res) => {
     .single();
 
   if (error) {
-    console.error("Erreur Supabase beneficiaires:", error);
+    console.error("Erreur add beneficiaire:", error);
     return res.status(500).json({ error: error.message });
   }
 
@@ -188,10 +190,15 @@ app.put("/api/beneficiaires/:id", authMiddleware, async (req, res) => {
 });
 
 app.delete("/api/beneficiaires/:id", authMiddleware, async (req, res) => {
-  await supabase
+  const { error: actionsError } = await supabase
     .from("actions")
     .delete()
     .eq("beneficiaire_id", req.params.id);
+
+  if (actionsError) {
+    console.error("Erreur delete actions:", actionsError);
+    return res.status(500).json({ error: actionsError.message });
+  }
 
   const { error } = await supabase
     .from("beneficiaires")
@@ -213,7 +220,7 @@ app.get("/api/beneficiaires/:id/actions", authMiddleware, async (req, res) => {
     .from("actions")
     .select("*")
     .eq("beneficiaire_id", req.params.id)
-    .order("date", { ascending: false });
+    .order("created_at", { ascending: false });
 
   if (error) {
     console.error("Erreur get actions:", error);
@@ -246,6 +253,22 @@ app.post("/api/beneficiaires/:id/actions", authMiddleware, async (req, res) => {
 
   res.json(data);
 });
+
+app.delete("/api/actions/:id", authMiddleware, async (req, res) => {
+  const { error } = await supabase
+    .from("actions")
+    .delete()
+    .eq("id", req.params.id);
+
+  if (error) {
+    console.error("Erreur delete action:", error);
+    return res.status(500).json({ error: error.message });
+  }
+
+  res.json({ success: true });
+});
+
+/* START */
 
 app.listen(PORT, () => {
   console.log(`Serveur lancé sur le port ${PORT}`);
