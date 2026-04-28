@@ -101,28 +101,34 @@ export default function App() {
 
       <aside className="sidebar">
         <div>
-          <img src={logo} alt="Logo" className="sidebar-logo" />
-          <h2>Suivi Solidaire</h2>
-          <p className="muted">Connecté : {user?.email}</p>
-        </div>
+          <div className="brand">
+            <img src={logo} alt="Logo" className="brand-logo" />
+            <div>
+              <h2>Suivi Solidaire</h2>
+              <span className="badge">Production</span>
+            </div>
+          </div>
 
-        <nav>
-          <button className={page === "dashboard" ? "active" : ""} onClick={() => setPage("dashboard")}>
-            Tableau de bord
-          </button>
-          <button className={page === "beneficiaires" ? "active" : ""} onClick={() => setPage("beneficiaires")}>
-            Bénéficiaires
-          </button>
-          <button className={page === "actions" ? "active" : ""} onClick={() => setPage("actions")}>
-            Actions
-          </button>
-          <button className={page === "documents" ? "active" : ""} onClick={() => setPage("documents")}>
-            Documents
-          </button>
-          <button className={page === "securite" ? "active" : ""} onClick={() => setPage("securite")}>
-            Confidentialité
-          </button>
-        </nav>
+          <p className="muted user-line">Connecté : {user?.email}</p>
+
+          <nav>
+            <button className={page === "dashboard" ? "active" : ""} onClick={() => setPage("dashboard")}>
+              Tableau de bord
+            </button>
+            <button className={page === "beneficiaires" ? "active" : ""} onClick={() => setPage("beneficiaires")}>
+              Bénéficiaires
+            </button>
+            <button className={page === "actions" ? "active" : ""} onClick={() => setPage("actions")}>
+              Actions
+            </button>
+            <button className={page === "documents" ? "active" : ""} onClick={() => setPage("documents")}>
+              Documents
+            </button>
+            <button className={page === "securite" ? "active" : ""} onClick={() => setPage("securite")}>
+              Confidentialité
+            </button>
+          </nav>
+        </div>
 
         <button className="danger" onClick={deconnexion}>
           Déconnexion
@@ -130,10 +136,11 @@ export default function App() {
       </aside>
 
       <main className="main">
+        <HeaderPro user={user} />
+
         {loading && <p>Chargement...</p>}
 
         {!loading && page === "dashboard" && <Dashboard beneficiaires={beneficiaires} />}
-
         {!loading && page === "beneficiaires" && (
           <Beneficiaires
             beneficiaires={beneficiaires}
@@ -142,7 +149,6 @@ export default function App() {
             showToast={showToast}
           />
         )}
-
         {!loading && page === "actions" && <Actions />}
         {!loading && page === "documents" && <Documents />}
         {!loading && page === "securite" && <Securite />}
@@ -153,13 +159,26 @@ export default function App() {
   );
 }
 
+function HeaderPro({ user }) {
+  return (
+    <header className="top-header">
+      <div>
+        <p className="eyebrow">La Voix des Ancêtres</p>
+        <h1>Plateforme de suivi solidaire</h1>
+      </div>
+
+      <div className="header-right">
+        <span className="status-dot"></span>
+        <span>Backend en ligne</span>
+        <span className="header-user">{user?.role || "bénévole"}</span>
+      </div>
+    </header>
+  );
+}
+
 function AuthPage({ setToken, setUser, showToast }) {
   const [mode, setMode] = useState("login");
-  const [form, setForm] = useState({
-    nom: "",
-    email: "",
-    password: "",
-  });
+  const [form, setForm] = useState({ nom: "", email: "", password: "" });
 
   async function submit(e) {
     e.preventDefault();
@@ -189,7 +208,6 @@ function AuthPage({ setToken, setUser, showToast }) {
 
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
-
       setToken(data.token);
       setUser(data.user);
       showToast("Connexion réussie.", "success");
@@ -207,11 +225,7 @@ function AuthPage({ setToken, setUser, showToast }) {
         <h2>{mode === "login" ? "Connexion" : "Créer un compte"}</h2>
 
         {mode === "register" && (
-          <input
-            placeholder="Nom"
-            value={form.nom}
-            onChange={(e) => setForm({ ...form, nom: e.target.value })}
-          />
+          <input placeholder="Nom" value={form.nom} onChange={(e) => setForm({ ...form, nom: e.target.value })} />
         )}
 
         <input
@@ -250,11 +264,10 @@ function Dashboard({ beneficiaires }) {
   return (
     <>
       <h1>Tableau de bord</h1>
-
       <div className="cards">
         <Card title="Bénéficiaires" value={beneficiaires.length} />
         <Card title="Situations urgentes" value={urgents} />
-        <Card title="Backend" value="En ligne" />
+        <Card title="Statut" value="En ligne" />
       </div>
     </>
   );
@@ -285,15 +298,11 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders, showT
   );
 
   useEffect(() => {
-    if (!selected && beneficiaires.length > 0) {
-      setSelected(beneficiaires[0]);
-    }
+    if (!selected && beneficiaires.length > 0) setSelected(beneficiaires[0]);
   }, [beneficiaires, selected]);
 
   useEffect(() => {
-    if (selected?.id) {
-      chargerActions(selected.id);
-    }
+    if (selected?.id) chargerActions(selected.id);
   }, [selected]);
 
   async function chargerActions(beneficiaireId) {
@@ -341,11 +350,7 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders, showT
       return;
     }
 
-    const url =
-      editId === null
-        ? `${API_URL}/beneficiaires`
-        : `${API_URL}/beneficiaires/${editId}`;
-
+    const url = editId === null ? `${API_URL}/beneficiaires` : `${API_URL}/beneficiaires/${editId}`;
     const method = editId === null ? "POST" : "PUT";
 
     try {
@@ -363,13 +368,9 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders, showT
       setForm(emptyForm);
       setEditId(null);
       setShowForm(false);
-
       await chargerBeneficiaires();
 
-      showToast(
-        editId === null ? "Bénéficiaire ajouté avec succès." : "Fiche modifiée avec succès.",
-        "success"
-      );
+      showToast(editId === null ? "Bénéficiaire ajouté avec succès." : "Fiche modifiée avec succès.");
     } catch (error) {
       console.error(error);
       showToast("Impossible d’enregistrer.", "error");
@@ -377,8 +378,7 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders, showT
   }
 
   async function supprimer(beneficiaire) {
-    const confirmation = window.confirm(`Supprimer définitivement ${beneficiaire.nom} ?`);
-    if (!confirmation) return;
+    if (!window.confirm(`Supprimer définitivement ${beneficiaire.nom} ?`)) return;
 
     try {
       const response = await fetch(`${API_URL}/beneficiaires/${beneficiaire.id}`, {
@@ -394,8 +394,7 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders, showT
       setSelected(null);
       setActions([]);
       await chargerBeneficiaires();
-
-      showToast("Bénéficiaire supprimé.", "success");
+      showToast("Bénéficiaire supprimé.");
     } catch (error) {
       console.error(error);
       showToast("Impossible de supprimer.", "error");
@@ -424,8 +423,7 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders, showT
 
       setActionForm(emptyAction);
       await chargerActions(selected.id);
-
-      showToast("Action ajoutée à l’historique.", "success");
+      showToast("Action ajoutée à l’historique.");
     } catch (error) {
       console.error(error);
       showToast("Impossible d’ajouter l’action.", "error");
@@ -440,8 +438,7 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders, showT
         const canvas = document.createElement("canvas");
         canvas.width = img.width;
         canvas.height = img.height;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0);
+        canvas.getContext("2d").drawImage(img, 0, 0);
         resolve(canvas.toDataURL("image/png"));
       };
       img.onerror = reject;
@@ -456,42 +453,35 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders, showT
     const pageWidth = doc.internal.pageSize.getWidth();
 
     let logoBase64 = null;
-
     try {
       logoBase64 = await imageToBase64(logo);
     } catch {
       logoBase64 = null;
     }
 
-    doc.setFillColor(37, 99, 235);
-    doc.rect(0, 0, pageWidth, 34, "F");
+    doc.setFillColor(15, 76, 129);
+    doc.rect(0, 0, pageWidth, 36, "F");
 
-    if (logoBase64) {
-      doc.addImage(logoBase64, "PNG", 12, 7, 20, 20);
-    }
+    if (logoBase64) doc.addImage(logoBase64, "PNG", 12, 7, 22, 22);
 
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(18);
-    doc.text("Suivi Solidaire", logoBase64 ? 38 : 14, 16);
-
+    doc.text("Suivi Solidaire", logoBase64 ? 40 : 14, 16);
     doc.setFontSize(11);
-    doc.text("Fiche bénéficiaire", logoBase64 ? 38 : 14, 24);
+    doc.text("La Voix des Ancêtres — Fiche bénéficiaire", logoBase64 ? 40 : 14, 25);
 
     doc.setTextColor(30, 41, 59);
     doc.setFontSize(16);
-    doc.text(selected.nom || "Bénéficiaire", 14, 48);
+    doc.text(selected.nom || "Bénéficiaire", 14, 50);
 
     doc.setFontSize(10);
     doc.setTextColor(100, 116, 139);
-    doc.text(`Export généré le ${new Date().toLocaleDateString("fr-FR")}`, 14, 55);
-
-    doc.setDrawColor(226, 232, 240);
-    doc.line(14, 60, 196, 60);
+    doc.text(`Export généré le ${new Date().toLocaleDateString("fr-FR")}`, 14, 57);
 
     let y = 72;
 
     function sectionTitle(title) {
-      doc.setTextColor(37, 99, 235);
+      doc.setTextColor(15, 76, 129);
       doc.setFontSize(13);
       doc.text(title, 14, y);
       y += 8;
@@ -563,7 +553,7 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders, showT
     }
 
     doc.save(`fiche-${selected.nom || "beneficiaire"}.pdf`);
-    showToast("PDF exporté avec succès.", "success");
+    showToast("PDF exporté avec succès.");
   }
 
   return (
@@ -589,37 +579,21 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders, showT
               <h3>{editId === null ? "Nouveau bénéficiaire" : "Modifier le bénéficiaire"}</h3>
 
               <div className="grid-form">
-                <input placeholder="Nom" value={form.nom} onChange={(e) => setForm({ ...form, nom: e.target.value })} />
-                <input placeholder="Âge" value={form.age} onChange={(e) => setForm({ ...form, age: e.target.value })} />
-                <input placeholder="Profil" value={form.profil} onChange={(e) => setForm({ ...form, profil: e.target.value })} />
-                <input placeholder="Ville" value={form.ville} onChange={(e) => setForm({ ...form, ville: e.target.value })} />
-                <input placeholder="Priorité" value={form.priorite} onChange={(e) => setForm({ ...form, priorite: e.target.value })} />
-                <input placeholder="Besoins" value={form.besoin} onChange={(e) => setForm({ ...form, besoin: e.target.value })} />
-                <input placeholder="Téléphone" value={form.telephone} onChange={(e) => setForm({ ...form, telephone: e.target.value })} />
-                <input placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-                <input placeholder="Adresse" value={form.adresse} onChange={(e) => setForm({ ...form, adresse: e.target.value })} />
-                <input placeholder="Référent" value={form.referent} onChange={(e) => setForm({ ...form, referent: e.target.value })} />
+                {Object.keys(emptyForm).map((key) => (
+                  <input
+                    key={key}
+                    placeholder={key}
+                    value={form[key]}
+                    onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+                  />
+                ))}
               </div>
-
-              <textarea
-                placeholder="Notes sociales"
-                value={form.notes}
-                onChange={(e) => setForm({ ...form, notes: e.target.value })}
-              />
 
               <div className="actions-row">
                 <button className="primary" onClick={enregistrer}>
-                  {editId === null ? "Enregistrer" : "Enregistrer les modifications"}
+                  Enregistrer
                 </button>
-
-                <button
-                  className="secondary"
-                  onClick={() => {
-                    setShowForm(false);
-                    setEditId(null);
-                    setForm(emptyForm);
-                  }}
-                >
+                <button className="secondary" onClick={() => setShowForm(false)}>
                   Annuler
                 </button>
               </div>
@@ -672,37 +646,23 @@ function FicheDetaillee({
   exporterPDF,
 }) {
   if (!beneficiaire) {
-    return (
-      <div className="panel">
-        <h2>Aucun bénéficiaire sélectionné</h2>
-        <p className="muted">Ajoute un bénéficiaire ou sélectionne une fiche.</p>
-      </div>
-    );
+    return <div className="panel">Aucun bénéficiaire sélectionné.</div>;
   }
 
   return (
     <aside className="panel detail">
       <h2>Fiche détaillée</h2>
-
       <h3>{beneficiaire.nom}</h3>
 
-      <button className="primary" onClick={exporterPDF}>
-        Exporter la fiche en PDF
-      </button>
+      <button className="primary" onClick={exporterPDF}>Exporter la fiche en PDF</button>
 
       <p><strong>Âge :</strong> {beneficiaire.age}</p>
       <p><strong>Profil :</strong> {beneficiaire.profil}</p>
       <p><strong>Ville :</strong> {beneficiaire.ville}</p>
       <p><strong>Adresse :</strong> {beneficiaire.adresse || "Non renseignée"}</p>
-
-      <hr />
-
       <p><strong>Téléphone :</strong> {beneficiaire.telephone || "Non renseigné"}</p>
       <p><strong>Email :</strong> {beneficiaire.email || "Non renseigné"}</p>
       <p><strong>Référent :</strong> {beneficiaire.referent || "Non renseigné"}</p>
-
-      <hr />
-
       <p><strong>Priorité :</strong> {beneficiaire.priorite || "Non renseignée"}</p>
       <p><strong>Besoins :</strong> {beneficiaire.besoin || "Non renseignés"}</p>
 
@@ -720,16 +680,9 @@ function FicheDetaillee({
 
       <h3>Ajouter une action</h3>
 
-      <input
-        type="date"
-        value={actionForm.date}
-        onChange={(e) => setActionForm({ ...actionForm, date: e.target.value })}
-      />
+      <input type="date" value={actionForm.date} onChange={(e) => setActionForm({ ...actionForm, date: e.target.value })} />
 
-      <select
-        value={actionForm.type}
-        onChange={(e) => setActionForm({ ...actionForm, type: e.target.value })}
-      >
+      <select value={actionForm.type} onChange={(e) => setActionForm({ ...actionForm, type: e.target.value })}>
         <option value="">Type d’action</option>
         <option value="Appel">Appel</option>
         <option value="Visite">Visite</option>
@@ -746,9 +699,7 @@ function FicheDetaillee({
         onChange={(e) => setActionForm({ ...actionForm, description: e.target.value })}
       />
 
-      <button className="primary" onClick={ajouterAction}>
-        Ajouter l’action
-      </button>
+      <button className="primary" onClick={ajouterAction}>Ajouter l’action</button>
 
       <hr />
 
@@ -769,36 +720,15 @@ function FicheDetaillee({
 }
 
 function Actions() {
-  return (
-    <>
-      <h1>Actions</h1>
-      <div className="panel">
-        <p>Les actions sont consultables dans chaque fiche bénéficiaire.</p>
-      </div>
-    </>
-  );
+  return <><h1>Actions</h1><div className="panel">Les actions sont consultables dans chaque fiche bénéficiaire.</div></>;
 }
 
 function Documents() {
-  return (
-    <>
-      <h1>Documents</h1>
-      <div className="panel">
-        <p>Module documents à développer ensuite.</p>
-      </div>
-    </>
-  );
+  return <><h1>Documents</h1><div className="panel">Module documents à développer ensuite.</div></>;
 }
 
 function Securite() {
-  return (
-    <>
-      <h1>Confidentialité</h1>
-      <div className="panel">
-        <p>Connexion sécurisée, mots de passe chiffrés et API protégée par token.</p>
-      </div>
-    </>
-  );
+  return <><h1>Confidentialité</h1><div className="panel">Connexion sécurisée, mots de passe chiffrés et API protégée par token.</div></>;
 }
 
 function Toast({ toast }) {
@@ -810,103 +740,150 @@ function GlobalStyles() {
   return (
     <style>{`
       * { box-sizing: border-box; }
+      body { margin: 0; font-family: Arial, sans-serif; background: #f4f7fb; color: #111827; }
 
-      body {
-        margin: 0;
-        font-family: Arial, sans-serif;
-        background: #f4f6f8;
-        color: #111827;
-      }
-
-      .app {
-        display: flex;
-        min-height: 100vh;
-        background: #f4f6f8;
-      }
+      .app { display: flex; min-height: 100vh; }
 
       .sidebar {
-        width: 280px;
-        background: #ffffff;
+        width: 300px;
+        background: linear-gradient(180deg, #0f4c81, #16324f);
+        color: white;
         padding: 24px;
-        min-height: 100vh;
-        border-right: 1px solid #e5e7eb;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
       }
 
-      .sidebar-logo {
-        width: 70px;
-        height: 70px;
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 18px;
+      }
+
+      .brand-logo {
+        width: 68px;
+        height: 68px;
         object-fit: contain;
-        margin-bottom: 12px;
+        background: white;
+        padding: 6px;
+        border-radius: 16px;
       }
 
-      .auth-logo {
-        width: 80px;
-        height: 80px;
-        object-fit: contain;
-        margin-bottom: 12px;
+      .brand h2 {
+        margin: 0;
+        font-size: 22px;
       }
 
-      nav { margin-top: 24px; }
-
-      .main {
-        flex: 1;
-        padding: 32px;
-        overflow-x: auto;
+      .badge {
+        display: inline-block;
+        margin-top: 6px;
+        background: #22c55e;
+        color: white;
+        font-size: 12px;
+        padding: 4px 8px;
+        border-radius: 999px;
       }
 
-      button {
-        border: none;
-        cursor: pointer;
-        border-radius: 10px;
-        padding: 12px 14px;
-        font-size: 15px;
-        transition: 0.2s;
-      }
+      .user-line { color: #dbeafe; }
 
       .sidebar button {
         display: block;
         width: 100%;
         margin-bottom: 10px;
         text-align: left;
-        background: #eef3ff;
+        background: rgba(255,255,255,0.12);
+        color: white;
+        border: 1px solid rgba(255,255,255,0.15);
       }
 
       .sidebar button:hover,
       .sidebar button.active {
-        background: #dbe7ff;
+        background: white;
+        color: #0f4c81;
+      }
+
+      .main {
+        flex: 1;
+        padding: 28px;
+        overflow-x: auto;
+      }
+
+      .top-header {
+        background: linear-gradient(135deg, #0f4c81, #2563eb);
+        color: white;
+        border-radius: 24px;
+        padding: 26px 30px;
+        margin-bottom: 28px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 18px 40px rgba(37, 99, 235, 0.22);
+      }
+
+      .top-header h1 {
+        margin: 4px 0 0;
+        font-size: 30px;
+      }
+
+      .eyebrow {
+        margin: 0;
+        color: #bfdbfe;
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      .header-right {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        background: rgba(255,255,255,0.14);
+        padding: 10px 14px;
+        border-radius: 999px;
+      }
+
+      .status-dot {
+        width: 10px;
+        height: 10px;
+        background: #22c55e;
+        border-radius: 50%;
+      }
+
+      .header-user {
+        background: white;
+        color: #0f4c81;
+        padding: 5px 10px;
+        border-radius: 999px;
+        font-weight: bold;
+      }
+
+      button {
+        border: none;
+        cursor: pointer;
+        border-radius: 12px;
+        padding: 12px 14px;
+        font-size: 15px;
       }
 
       .primary { background: #2563eb; color: white; }
-      .primary:hover { background: #1d4ed8; }
-
       .secondary { background: #eef2f7; color: #111827; }
-      .secondary:hover { background: #e2e8f0; }
-
       .danger { background: #fee2e2 !important; color: #991b1b !important; }
-      .danger:hover { background: #fecaca !important; }
-
-      .small { width: auto; }
 
       input, textarea, select {
         width: 100%;
         padding: 12px;
         border: 1px solid #d1d5db;
-        border-radius: 10px;
+        border-radius: 12px;
         font-size: 15px;
         background: white;
       }
 
-      textarea {
-        min-height: 90px;
-        resize: vertical;
-      }
+      textarea { min-height: 90px; resize: vertical; }
 
       .auth-page {
         min-height: 100vh;
-        background: #f4f6f8;
+        background: linear-gradient(135deg, #0f4c81, #2563eb);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -916,8 +893,14 @@ function GlobalStyles() {
         background: white;
         width: 390px;
         padding: 32px;
-        border-radius: 18px;
-        box-shadow: 0 20px 45px rgba(15, 23, 42, 0.12);
+        border-radius: 24px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+      }
+
+      .auth-logo {
+        width: 90px;
+        height: 90px;
+        object-fit: contain;
       }
 
       .auth-card input,
@@ -931,24 +914,20 @@ function GlobalStyles() {
         gap: 20px;
       }
 
-      .card,
-      .panel,
-      .list-card,
-      .history-card {
+      .card, .panel, .list-card, .history-card {
         background: white;
-        border-radius: 18px;
-        box-shadow: 0 8px 25px rgba(15, 23, 42, 0.05);
+        border-radius: 20px;
+        box-shadow: 0 8px 25px rgba(15, 23, 42, 0.07);
       }
 
       .card { padding: 26px; }
-      .card p { color: #6b7280; margin: 0 0 10px; }
-      .card h2 { font-size: 34px; margin: 0; }
+      .card p { color: #64748b; margin: 0 0 10px; }
+      .card h2 { font-size: 34px; margin: 0; color: #0f4c81; }
 
       .page-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        gap: 16px;
       }
 
       .layout {
@@ -959,7 +938,6 @@ function GlobalStyles() {
       }
 
       .search { margin-bottom: 18px; }
-
       .panel { padding: 24px; }
       .form-panel { margin-bottom: 22px; }
 
@@ -991,7 +969,7 @@ function GlobalStyles() {
 
       .list-card.selected {
         border-color: #2563eb;
-        background: #eef3ff;
+        background: #eff6ff;
       }
 
       .detail {
@@ -1019,7 +997,7 @@ function GlobalStyles() {
         margin-bottom: 10px;
       }
 
-      .muted { color: #6b7280; }
+      .muted { color: #64748b; }
 
       .toast {
         position: fixed;
@@ -1048,6 +1026,7 @@ function GlobalStyles() {
         .detail { position: static; }
         .cards { grid-template-columns: 1fr; }
         .grid-form { grid-template-columns: 1fr; }
+        .top-header { flex-direction: column; align-items: flex-start; gap: 14px; }
       }
     `}</style>
   );
