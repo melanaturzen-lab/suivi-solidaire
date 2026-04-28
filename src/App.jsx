@@ -6,52 +6,84 @@ const API = import.meta.env.VITE_API_URL;
 
 export default function App() {
   const [view, setView] = useState("dashboard");
-  const [user, setUser] = useState(null);
   const [beneficiaires, setBeneficiaires] = useState([]);
   const [selected, setSelected] = useState(null);
-  const [accompagnements, setAccompagnements] = useState([]);
+  const [entretiens, setEntretiens] = useState([]);
   const [toast, setToast] = useState(null);
 
   const token = localStorage.getItem("token");
 
-  // 🔐 Vérification utilisateur
-  useEffect(() => {
-    if (!token) return;
-
-    fetch(`${API}/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(res => res.json())
-      .then(data => setUser(data.user))
-      .catch(() => logout());
-  }, []);
+  // 🔔 Toast
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
+  };
 
   // 📥 Charger bénéficiaires
   const loadBeneficiaires = async () => {
-    const res = await fetch(`${API}/beneficiaires`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const data = await res.json();
-    setBeneficiaires(data);
+    try {
+      const res = await fetch(`${API}/beneficiaires`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setBeneficiaires(data);
+    } catch {
+      showToast("Erreur chargement bénéficiaires");
+    }
   };
 
-  // 📥 Charger accompagnement
-  const loadAccompagnement = async (id) => {
-    const res = await fetch(`${API}/accompagnement/${id}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const data = await res.json();
-    setAccompagnements(data);
+  // 📥 Charger entretiens
+  const loadEntretiens = async (id) => {
+    try {
+      const res = await fetch(`${API}/entretiens/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setEntretiens(data);
+    } catch {
+      showToast("Erreur chargement entretiens");
+    }
   };
 
   useEffect(() => {
     if (token) loadBeneficiaires();
-  }, [token]);
+  }, []);
 
-  // 🔔 Toast
-  const showToast = (msg, type = "success") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
+  // 📄 PDF
+  const exportPDF = () => {
+    if (!selected) return;
+
+    const doc = new jsPDF();
+
+    doc.addImage(logo, "PNG", 10, 10, 40, 20);
+    doc.setFontSize(16);
+    doc.text("Fiche bénéficiaire", 10, 40);
+
+    doc.text(`Nom : ${selected.nom}`, 10, 60);
+    doc.text(`Ville : ${selected.ville}`, 10, 70);
+    doc.text(`Profil : ${selected.profil}`, 10, 80);
+
+    doc.save("fiche.pdf");
+  };
+
+  // ➕ Ajouter entretien
+  const addEntretien = async () => {
+    const res = await fetch(`${API}/entretiens`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        beneficiaire_id: selected.id,
+        contenu: "Nouvel entretien",
+      }),
+    });
+
+    if (res.ok) {
+      showToast("Entretien ajouté");
+      loadEntretiens(selected.id);
+    }
   };
 
   // 🚪 Logout
@@ -60,83 +92,49 @@ export default function App() {
     location.reload();
   };
 
-  // 📄 Export PDF
-  const exportPDF = () => {
-    if (!selected) return;
-
-    const doc = new jsPDF();
-    doc.addImage(logo, "PNG", 10, 10, 40, 20);
-
-    doc.setFontSize(18);
-    doc.text("Fiche Bénéficiaire", 10, 40);
-
-    doc.setFontSize(12);
-    doc.text(`Nom : ${selected.nom}`, 10, 60);
-    doc.text(`Age : ${selected.age}`, 10, 70);
-    doc.text(`Ville : ${selected.ville}`, 10, 80);
-    doc.text(`Profil : ${selected.profil}`, 10, 90);
-
-    doc.save("fiche.pdf");
-  };
-
-  // ➕ Ajouter accompagnement
-  const addAccompagnement = async () => {
-    const res = await fetch(`${API}/accompagnement`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        beneficiaire_id: selected.id,
-        type: "Entretien",
-        contenu: "Nouvelle note",
-      }),
-    });
-
-    if (res.ok) {
-      showToast("Accompagnement ajouté");
-      loadAccompagnement(selected.id);
-    }
-  };
-
-  if (!user) return <div style={{ padding: 50 }}>Chargement...</div>;
+  // 🔐 Si pas de token
+  if (!token) {
+    return (
+      <div style={{ padding: 50 }}>
+        <h2>Veuillez vous connecter</h2>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: "flex", height: "100vh", background: "#0b1220", color: "white" }}>
       
-      {/* SIDEBAR */}
-      <div style={{ width: 260, background: "#020617", padding: 20 }}>
-        <img src={logo} style={{ width: 60, borderRadius: 10 }} />
+      {/* MENU */}
+      <div style={{ width: 250, background: "#020617", padding: 20 }}>
+        <img src={logo} style={{ width: 60 }} />
         <h2>Suivi Solidaire</h2>
-        <p style={{ color: "#94a3b8" }}>{user.email}</p>
 
-        <MenuButton label="Dashboard" onClick={() => setView("dashboard")} />
-        <MenuButton label="Bénéficiaires" onClick={() => setView("benef")} />
-        <MenuButton label="Accompagnement" onClick={() => setView("accompagnement")} />
-        <MenuButton label="Documents" onClick={() => setView("docs")} />
-        
-        <button onClick={logout} style={{ marginTop: 20, background: "#7f1d1d", padding: 10 }}>
+        <Menu label="Dashboard" onClick={() => setView("dashboard")} />
+        <Menu label="Bénéficiaires" onClick={() => setView("benef")} />
+        <Menu label="Accompagnement" onClick={() => setView("accompagnement")} />
+
+        <button onClick={logout} style={{ marginTop: 20 }}>
           Déconnexion
         </button>
       </div>
 
-      {/* CONTENT */}
+      {/* CONTENU */}
       <div style={{ flex: 1, padding: 20 }}>
-        
-        <h1>Plateforme de suivi</h1>
 
-        {/* BENEFICIAIRES */}
+        {view === "dashboard" && <h1>Dashboard</h1>}
+
+        {/* BENEF */}
         {view === "benef" && (
           <div>
             <h2>Bénéficiaires</h2>
-            {beneficiaires.map(b => (
+
+            {beneficiaires.map((b) => (
               <div key={b.id}
                 onClick={() => {
                   setSelected(b);
-                  loadAccompagnement(b.id);
+                  loadEntretiens(b.id);
                 }}
-                style={{ padding: 10, border: "1px solid #333", marginBottom: 10, cursor: "pointer" }}
+                style={{ border: "1px solid #333", margin: 5, padding: 10, cursor: "pointer" }}
               >
                 {b.nom} - {b.ville}
               </div>
@@ -144,8 +142,8 @@ export default function App() {
 
             {selected && (
               <div>
-                <h3>Détail</h3>
-                <button onClick={exportPDF}>Exporter PDF</button>
+                <h3>{selected.nom}</h3>
+                <button onClick={exportPDF}>PDF</button>
               </div>
             )}
           </div>
@@ -154,14 +152,13 @@ export default function App() {
         {/* ACCOMPAGNEMENT */}
         {view === "accompagnement" && selected && (
           <div>
-            <h2>Accompagnement - {selected.nom}</h2>
+            <h2>Entretiens - {selected.nom}</h2>
 
-            <button onClick={addAccompagnement}>Ajouter</button>
+            <button onClick={addEntretien}>Ajouter entretien</button>
 
-            {accompagnements.map(a => (
-              <div key={a.id} style={{ marginTop: 10 }}>
-                <b>{a.type}</b>
-                <p>{a.contenu}</p>
+            {entretiens.map((e) => (
+              <div key={e.id} style={{ marginTop: 10 }}>
+                {e.contenu}
               </div>
             ))}
           </div>
@@ -175,29 +172,19 @@ export default function App() {
           position: "fixed",
           bottom: 20,
           right: 20,
-          background: toast.type === "error" ? "#7f1d1d" : "#065f46",
-          padding: 15,
-          borderRadius: 10
+          background: "#065f46",
+          padding: 10
         }}>
-          {toast.msg}
+          {toast}
         </div>
       )}
     </div>
   );
 }
 
-function MenuButton({ label, onClick }) {
+function Menu({ label, onClick }) {
   return (
-    <div
-      onClick={onClick}
-      style={{
-        padding: 10,
-        marginTop: 10,
-        background: "#1e293b",
-        cursor: "pointer",
-        borderRadius: 8
-      }}
-    >
+    <div onClick={onClick} style={{ padding: 10, cursor: "pointer" }}>
       {label}
     </div>
   );
