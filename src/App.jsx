@@ -160,8 +160,12 @@ export default function App() {
         )}
 
         {page === "documents" && (
-          <Panel title="Documents" text="Module documents à développer ensuite." />
-        )}
+  <Documents
+    beneficiaires={beneficiaires}
+    headers={headers}
+    showToast={showToast}
+  />
+)}
 
         {page === "securite" && (
           <Panel title="Confidentialité" text="Connexion sécurisée, API protégée par token et RLS Supabase activé." />
@@ -631,7 +635,168 @@ function Accompagnement({ beneficiaires, headers, showToast }) {
     </>
   );
 }
+function Documents({ beneficiaires, headers, showToast }) {
+  const [documents, setDocuments] = useState([]);
+  const [file, setFile] = useState(null);
+  const [beneficiaireId, setBeneficiaireId] = useState("");
+  const [notes, setNotes] = useState("");
+  const [uploading, setUploading] = useState(false);
 
+  async function loadDocuments() {
+    try {
+      const res = await fetch(`${API}/documents`, {
+        headers: headers(),
+      });
+
+      const data = await res.json();
+      setDocuments(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error(error);
+      showToast("Erreur chargement documents", "error");
+    }
+  }
+
+  useEffect(() => {
+    loadDocuments();
+  }, []);
+
+  async function uploadDocument() {
+    if (!file || !beneficiaireId) {
+      showToast("Choisis un bénéficiaire et un fichier.", "error");
+      return;
+    }
+
+    try {
+      setUploading(true);
+
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("beneficiaire_id", beneficiaireId);
+      formData.append("notes", notes);
+
+      const res = await fetch(`${API}/documents/upload`, {
+        method: "POST",
+        headers: {
+          Authorization: headers().Authorization,
+        },
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        showToast(data.error || "Erreur upload document", "error");
+        return;
+      }
+
+      setFile(null);
+      setBeneficiaireId("");
+      setNotes("");
+      await loadDocuments();
+
+      showToast("Document ajouté avec succès.");
+    } catch (error) {
+      console.error(error);
+      showToast("Erreur upload document", "error");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function deleteDocument(id) {
+    if (!confirm("Supprimer ce document ?")) return;
+
+    try {
+      const res = await fetch(`${API}/documents/${id}`, {
+        method: "DELETE",
+        headers: headers(),
+      });
+
+      if (!res.ok) {
+        showToast("Erreur suppression document", "error");
+        return;
+      }
+
+      await loadDocuments();
+      showToast("Document supprimé.");
+    } catch (error) {
+      console.error(error);
+      showToast("Erreur suppression document", "error");
+    }
+  }
+
+  return (
+    <>
+      <h1>Documents</h1>
+
+      <div className="layout">
+        <div className="panel">
+          <h2>Ajouter un document</h2>
+
+          <select
+            value={beneficiaireId}
+            onChange={(e) => setBeneficiaireId(e.target.value)}
+          >
+            <option value="">Choisir un bénéficiaire</option>
+            {beneficiaires.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.nom}
+              </option>
+            ))}
+          </select>
+
+          <input
+            type="file"
+            accept=".pdf,image/*,.doc,.docx"
+            onChange={(e) => setFile(e.target.files[0])}
+          />
+
+          <textarea
+            placeholder="Notes sur le document..."
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+          />
+
+          <button className="primary" onClick={uploadDocument} disabled={uploading}>
+            {uploading ? "Upload en cours..." : "Uploader le document"}
+          </button>
+        </div>
+
+        <div className="panel">
+          <h2>Documents enregistrés</h2>
+
+          {documents.length === 0 ? (
+            <p className="muted">Aucun document enregistré.</p>
+          ) : (
+            documents.map((doc) => (
+              <div className="history" key={doc.id}>
+                <h3>{doc.nom}</h3>
+                <p className="muted">
+                  Bénéficiaire : {doc.beneficiaires?.nom || "Non renseigné"}
+                </p>
+                <p>{doc.notes || "Aucune note."}</p>
+
+                <a href={doc.url} target="_blank" rel="noreferrer">
+                  Ouvrir le document
+                </a>
+
+                <br />
+
+                <button
+                  className="danger"
+                  onClick={() => deleteDocument(doc.id)}
+                  style={{ marginTop: 10 }}
+                >
+                  Supprimer
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
 function Panel({ title, text }) {
   return (
     <div className="panel">
