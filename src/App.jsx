@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import jsPDF from "jspdf";
 import logo from "./assets/logo.png";
 
@@ -66,7 +66,6 @@ export default function App() {
 
     try {
       setLoading(true);
-
       const response = await fetch(`${API_URL}/beneficiaires`, {
         headers: authHeaders(),
       });
@@ -111,28 +110,28 @@ export default function App() {
             <img src={logo} alt="Logo" className="brand-logo" />
             <div>
               <h2>Suivi Solidaire</h2>
-              <span className="badge">Production</span>
+              <span className="badge-production">Production</span>
             </div>
           </div>
 
           <p className="muted user-line">Connecté : {user?.email}</p>
 
           <nav>
-            <button className={page === "dashboard" ? "active" : ""} onClick={() => setPage("dashboard")}>
-              Tableau de bord
-            </button>
-            <button className={page === "beneficiaires" ? "active" : ""} onClick={() => setPage("beneficiaires")}>
-              Bénéficiaires
-            </button>
-            <button className={page === "actions" ? "active" : ""} onClick={() => setPage("actions")}>
-              Actions
-            </button>
-            <button className={page === "documents" ? "active" : ""} onClick={() => setPage("documents")}>
-              Documents
-            </button>
-            <button className={page === "securite" ? "active" : ""} onClick={() => setPage("securite")}>
-              Confidentialité
-            </button>
+            {[
+              ["dashboard", "Tableau de bord"],
+              ["beneficiaires", "Bénéficiaires"],
+              ["actions", "Actions"],
+              ["documents", "Documents"],
+              ["securite", "Confidentialité"],
+            ].map(([key, label]) => (
+              <button
+                key={key}
+                className={page === key ? "active" : ""}
+                onClick={() => setPage(key)}
+              >
+                {label}
+              </button>
+            ))}
           </nav>
         </div>
 
@@ -144,9 +143,12 @@ export default function App() {
       <main className="main">
         <HeaderPro user={user} theme={theme} setTheme={setTheme} />
 
-        {loading && <p className="muted">Chargement...</p>}
+        {loading && <SkeletonDashboard />}
 
-        {!loading && page === "dashboard" && <Dashboard beneficiaires={beneficiaires} />}
+        {!loading && page === "dashboard" && (
+          <Dashboard beneficiaires={beneficiaires} />
+        )}
+
         {!loading && page === "beneficiaires" && (
           <Beneficiaires
             beneficiaires={beneficiaires}
@@ -155,6 +157,7 @@ export default function App() {
             showToast={showToast}
           />
         )}
+
         {!loading && page === "actions" && <Actions />}
         {!loading && page === "documents" && <Documents />}
         {!loading && page === "securite" && <Securite />}
@@ -177,7 +180,10 @@ function HeaderPro({ user, theme, setTheme }) {
         <span className="status-dot"></span>
         <span>Backend en ligne</span>
         <span className="header-user">{user?.role || "bénévole"}</span>
-        <button className="theme-toggle" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
+        <button
+          className="theme-toggle"
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+        >
           {theme === "dark" ? "☀️ Clair" : "🌙 Sombre"}
         </button>
       </div>
@@ -217,6 +223,7 @@ function AuthPage({ setToken, setUser, showToast }) {
 
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
+
       setToken(data.token);
       setUser(data.user);
       showToast("Connexion réussie.", "success");
@@ -234,17 +241,36 @@ function AuthPage({ setToken, setUser, showToast }) {
         <h2>{mode === "login" ? "Connexion" : "Créer un compte"}</h2>
 
         {mode === "register" && (
-          <input placeholder="Nom" value={form.nom} onChange={(e) => setForm({ ...form, nom: e.target.value })} />
+          <input
+            placeholder="Nom"
+            value={form.nom}
+            onChange={(e) => setForm({ ...form, nom: e.target.value })}
+          />
         )}
 
-        <input placeholder="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-        <input placeholder="Mot de passe" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+        <input
+          placeholder="Email"
+          type="email"
+          value={form.email}
+          onChange={(e) => setForm({ ...form, email: e.target.value })}
+        />
+
+        <input
+          placeholder="Mot de passe"
+          type="password"
+          value={form.password}
+          onChange={(e) => setForm({ ...form, password: e.target.value })}
+        />
 
         <button type="submit" className="primary">
           {mode === "login" ? "Se connecter" : "Créer le compte"}
         </button>
 
-        <button type="button" className="secondary" onClick={() => setMode(mode === "login" ? "register" : "login")}>
+        <button
+          type="button"
+          className="secondary"
+          onClick={() => setMode(mode === "login" ? "register" : "login")}
+        >
           {mode === "login" ? "Créer un compte" : "J’ai déjà un compte"}
         </button>
       </form>
@@ -252,28 +278,108 @@ function AuthPage({ setToken, setUser, showToast }) {
   );
 }
 
-function Dashboard({ beneficiaires }) {
-  const urgents = beneficiaires.filter((b) => b.priorite === "Élevée").length;
-
+function SkeletonDashboard() {
   return (
     <section className="fade-in">
-      <h1>Tableau de bord</h1>
+      <div className="skeleton skeleton-title"></div>
       <div className="cards">
-        <Card title="Bénéficiaires" value={beneficiaires.length} />
-        <Card title="Situations urgentes" value={urgents} />
-        <Card title="Statut" value="En ligne" />
+        <div className="skeleton skeleton-card"></div>
+        <div className="skeleton skeleton-card"></div>
+        <div className="skeleton skeleton-card"></div>
       </div>
     </section>
   );
 }
 
-function Card({ title, value }) {
+function Dashboard({ beneficiaires }) {
+  const stats = useMemo(() => {
+    const urgents = beneficiaires.filter((b) => {
+      const p = (b.priorite || "").toLowerCase();
+      return p.includes("haute") || p.includes("élevée") || p.includes("urgent");
+    }).length;
+
+    const villes = new Set(beneficiaires.map((b) => b.ville).filter(Boolean)).size;
+
+    const complets = beneficiaires.filter(
+      (b) => b.telephone || b.email || b.adresse
+    ).length;
+
+    return {
+      total: beneficiaires.length,
+      urgents,
+      villes,
+      completude: beneficiaires.length
+        ? Math.round((complets / beneficiaires.length) * 100)
+        : 0,
+    };
+  }, [beneficiaires]);
+
+  return (
+    <section className="fade-in">
+      <div className="page-header">
+        <div>
+          <p className="eyebrow local">Vue globale</p>
+          <h1>Tableau de bord</h1>
+        </div>
+      </div>
+
+      <div className="cards">
+        <Card title="Bénéficiaires" value={stats.total} subtitle="Fiches actives" />
+        <Card title="Situations urgentes" value={stats.urgents} subtitle="Priorité élevée" />
+        <Card title="Villes couvertes" value={stats.villes} subtitle="Zones suivies" />
+      </div>
+
+      <div className="premium-grid">
+        <div className="panel">
+          <h2>Qualité des dossiers</h2>
+          <p className="muted">Fiches avec au moins un contact ou une adresse.</p>
+          <div className="progress">
+            <div style={{ width: `${stats.completude}%` }}></div>
+          </div>
+          <h3>{stats.completude}% complètes</h3>
+        </div>
+
+        <div className="panel">
+          <h2>Priorités récentes</h2>
+          {beneficiaires.slice(0, 5).map((b) => (
+            <div key={b.id} className="mini-row">
+              <span>{b.nom || "Sans nom"}</span>
+              <BadgePriorite value={b.priorite} />
+            </div>
+          ))}
+          {beneficiaires.length === 0 && (
+            <p className="muted">Aucune fiche pour le moment.</p>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Card({ title, value, subtitle }) {
   return (
     <div className="card hover-card">
       <p>{title}</p>
       <h2>{value}</h2>
+      <span className="muted">{subtitle}</span>
     </div>
   );
+}
+
+function BadgePriorite({ value }) {
+  const label = value || "Non renseignée";
+  const clean = label.toLowerCase();
+
+  let cls = "badge-soft";
+  if (clean.includes("haute") || clean.includes("élevée") || clean.includes("urgent")) {
+    cls = "badge-danger";
+  } else if (clean.includes("moyenne")) {
+    cls = "badge-warning";
+  } else if (clean.includes("basse") || clean.includes("faible")) {
+    cls = "badge-success";
+  }
+
+  return <span className={cls}>{label}</span>;
 }
 
 function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders, showToast }) {
@@ -286,15 +392,21 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders, showT
   const [actionForm, setActionForm] = useState(emptyAction);
 
   const filtered = beneficiaires.filter((b) =>
-    `${b.nom || ""} ${b.ville || ""} ${b.profil || ""} ${b.besoin || ""}`.toLowerCase().includes(search.toLowerCase())
+    `${b.nom || ""} ${b.ville || ""} ${b.profil || ""} ${b.besoin || ""}`
+      .toLowerCase()
+      .includes(search.toLowerCase())
   );
 
   useEffect(() => {
-    if (!selected && beneficiaires.length > 0) setSelected(beneficiaires[0]);
+    if (!selected && beneficiaires.length > 0) {
+      setSelected(beneficiaires[0]);
+    }
   }, [beneficiaires, selected]);
 
   useEffect(() => {
-    if (selected?.id) chargerActions(selected.id);
+    if (selected?.id) {
+      chargerActions(selected.id);
+    }
   }, [selected]);
 
   async function chargerActions(beneficiaireId) {
@@ -342,7 +454,11 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders, showT
       return;
     }
 
-    const url = editId === null ? `${API_URL}/beneficiaires` : `${API_URL}/beneficiaires/${editId}`;
+    const url =
+      editId === null
+        ? `${API_URL}/beneficiaires`
+        : `${API_URL}/beneficiaires/${editId}`;
+
     const method = editId === null ? "POST" : "PUT";
 
     try {
@@ -360,9 +476,12 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders, showT
       setForm(emptyForm);
       setEditId(null);
       setShowForm(false);
+
       await chargerBeneficiaires();
 
-      showToast(editId === null ? "Bénéficiaire ajouté avec succès." : "Fiche modifiée avec succès.");
+      showToast(
+        editId === null ? "Bénéficiaire ajouté avec succès." : "Fiche modifiée avec succès."
+      );
     } catch (error) {
       console.error(error);
       showToast("Impossible d’enregistrer.", "error");
@@ -386,6 +505,7 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders, showT
       setSelected(null);
       setActions([]);
       await chargerBeneficiaires();
+
       showToast("Bénéficiaire supprimé.");
     } catch (error) {
       console.error(error);
@@ -415,6 +535,7 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders, showT
 
       setActionForm(emptyAction);
       await chargerActions(selected.id);
+
       showToast("Action ajoutée à l’historique.");
     } catch (error) {
       console.error(error);
@@ -508,7 +629,10 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders, showT
     y += 6;
 
     doc.setFont(undefined, "normal");
-    const noteLines = doc.splitTextToSize(selected.notes || "Aucune note renseignée.", 175);
+    const noteLines = doc.splitTextToSize(
+      selected.notes || "Aucune note renseignée.",
+      175
+    );
     doc.text(noteLines, 14, y);
     y += noteLines.length * 6 + 10;
 
@@ -551,7 +675,10 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders, showT
   return (
     <section className="fade-in">
       <div className="page-header">
-        <h1>Bénéficiaires</h1>
+        <div>
+          <p className="eyebrow local">Suivi social</p>
+          <h1>Bénéficiaires</h1>
+        </div>
         <button className="primary small" onClick={ouvrirAjout}>
           + Ajouter un bénéficiaire
         </button>
@@ -585,7 +712,14 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders, showT
                 <button className="primary" onClick={enregistrer}>
                   Enregistrer
                 </button>
-                <button className="secondary" onClick={() => setShowForm(false)}>
+                <button
+                  className="secondary"
+                  onClick={() => {
+                    setShowForm(false);
+                    setEditId(null);
+                    setForm(emptyForm);
+                  }}
+                >
                   Annuler
                 </button>
               </div>
@@ -597,11 +731,17 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders, showT
               <p className="muted">Aucun bénéficiaire trouvé.</p>
             ) : (
               filtered.map((b) => (
-                <div key={b.id} onClick={() => setSelected(b)} className={`list-card hover-card ${selected?.id === b.id ? "selected" : ""}`}>
-                  <h3>{b.nom} — {b.age} ans</h3>
+                <div
+                  key={b.id}
+                  onClick={() => setSelected(b)}
+                  className={`list-card hover-card ${selected?.id === b.id ? "selected" : ""}`}
+                >
+                  <div className="list-card-top">
+                    <h3>{b.nom} — {b.age} ans</h3>
+                    <BadgePriorite value={b.priorite} />
+                  </div>
                   <p><strong>Profil :</strong> {b.profil}</p>
                   <p><strong>Ville :</strong> {b.ville}</p>
-                  <p><strong>Priorité :</strong> {b.priorite}</p>
                 </div>
               ))
             )}
@@ -634,26 +774,42 @@ function FicheDetaillee({
   exporterPDF,
 }) {
   if (!beneficiaire) {
-    return <div className="panel detail">Aucun bénéficiaire sélectionné.</div>;
+    return (
+      <div className="panel detail">
+        <h2>Aucun bénéficiaire sélectionné</h2>
+        <p className="muted">Sélectionne une fiche ou ajoute un nouveau bénéficiaire.</p>
+      </div>
+    );
   }
 
   return (
     <aside className="panel detail scale-in">
       <h2>Fiche détaillée</h2>
-      <h3>{beneficiaire.nom}</h3>
 
-      <button className="primary" onClick={exporterPDF}>Exporter la fiche en PDF</button>
+      <div className="profile-head">
+        <div>
+          <h3>{beneficiaire.nom}</h3>
+          <p className="muted">{beneficiaire.profil || "Profil non renseigné"}</p>
+        </div>
+        <BadgePriorite value={beneficiaire.priorite} />
+      </div>
 
-      <p><strong>Âge :</strong> {beneficiaire.age}</p>
-      <p><strong>Profil :</strong> {beneficiaire.profil}</p>
-      <p><strong>Ville :</strong> {beneficiaire.ville}</p>
-      <p><strong>Adresse :</strong> {beneficiaire.adresse || "Non renseignée"}</p>
-      <p><strong>Téléphone :</strong> {beneficiaire.telephone || "Non renseigné"}</p>
-      <p><strong>Email :</strong> {beneficiaire.email || "Non renseigné"}</p>
-      <p><strong>Référent :</strong> {beneficiaire.referent || "Non renseigné"}</p>
-      <p><strong>Priorité :</strong> {beneficiaire.priorite || "Non renseignée"}</p>
+      <button className="primary" onClick={exporterPDF}>
+        Exporter la fiche en PDF
+      </button>
+
+      <div className="info-grid">
+        <p><strong>Âge :</strong> {beneficiaire.age}</p>
+        <p><strong>Ville :</strong> {beneficiaire.ville}</p>
+        <p><strong>Adresse :</strong> {beneficiaire.adresse || "Non renseignée"}</p>
+        <p><strong>Téléphone :</strong> {beneficiaire.telephone || "Non renseigné"}</p>
+        <p><strong>Email :</strong> {beneficiaire.email || "Non renseigné"}</p>
+        <p><strong>Référent :</strong> {beneficiaire.referent || "Non renseigné"}</p>
+      </div>
+
+      <hr />
+
       <p><strong>Besoins :</strong> {beneficiaire.besoin || "Non renseignés"}</p>
-
       <div className="note">{beneficiaire.notes || "Aucune note renseignée."}</div>
 
       <button className="secondary" onClick={() => ouvrirModification(beneficiaire)}>
@@ -668,9 +824,16 @@ function FicheDetaillee({
 
       <h3>Ajouter une action</h3>
 
-      <input type="date" value={actionForm.date} onChange={(e) => setActionForm({ ...actionForm, date: e.target.value })} />
+      <input
+        type="date"
+        value={actionForm.date}
+        onChange={(e) => setActionForm({ ...actionForm, date: e.target.value })}
+      />
 
-      <select value={actionForm.type} onChange={(e) => setActionForm({ ...actionForm, type: e.target.value })}>
+      <select
+        value={actionForm.type}
+        onChange={(e) => setActionForm({ ...actionForm, type: e.target.value })}
+      >
         <option value="">Type d’action</option>
         <option value="Appel">Appel</option>
         <option value="Visite">Visite</option>
@@ -687,36 +850,64 @@ function FicheDetaillee({
         onChange={(e) => setActionForm({ ...actionForm, description: e.target.value })}
       />
 
-      <button className="primary" onClick={ajouterAction}>Ajouter l’action</button>
+      <button className="primary" onClick={ajouterAction}>
+        Ajouter l’action
+      </button>
 
       <hr />
 
-      <h3>Historique</h3>
+      <h3>Timeline</h3>
 
       {actions.length === 0 ? (
         <p className="muted">Aucune action enregistrée.</p>
       ) : (
-        actions.map((action) => (
-          <div key={action.id} className="history-card">
-            <p><strong>{action.date}</strong> — {action.type}</p>
-            <p>{action.description}</p>
-          </div>
-        ))
+        <div className="timeline">
+          {actions.map((action) => (
+            <div key={action.id} className="timeline-item">
+              <div className="timeline-dot"></div>
+              <div className="history-card">
+                <p><strong>{action.date}</strong> — {action.type}</p>
+                <p>{action.description}</p>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </aside>
   );
 }
 
 function Actions() {
-  return <section className="fade-in"><h1>Actions</h1><div className="panel">Les actions sont consultables dans chaque fiche bénéficiaire.</div></section>;
+  return (
+    <section className="fade-in">
+      <h1>Actions</h1>
+      <div className="panel">
+        <p>Les actions sont consultables dans chaque fiche bénéficiaire.</p>
+      </div>
+    </section>
+  );
 }
 
 function Documents() {
-  return <section className="fade-in"><h1>Documents</h1><div className="panel">Module documents à développer ensuite.</div></section>;
+  return (
+    <section className="fade-in">
+      <h1>Documents</h1>
+      <div className="panel">
+        <p>Module documents à développer ensuite.</p>
+      </div>
+    </section>
+  );
 }
 
 function Securite() {
-  return <section className="fade-in"><h1>Confidentialité</h1><div className="panel">Connexion sécurisée, mots de passe chiffrés et API protégée par token.</div></section>;
+  return (
+    <section className="fade-in">
+      <h1>Confidentialité</h1>
+      <div className="panel">
+        <p>Connexion sécurisée, mots de passe chiffrés, API protégée par token et RLS Supabase activé.</p>
+      </div>
+    </section>
+  );
 }
 
 function Toast({ toast }) {
@@ -839,7 +1030,7 @@ function GlobalStyles() {
         font-size: 22px;
       }
 
-      .badge {
+      .badge-production {
         display: inline-block;
         margin-top: 6px;
         background: rgba(34,197,94,0.18);
@@ -890,6 +1081,7 @@ function GlobalStyles() {
       .top-header h1 {
         margin: 4px 0 0;
         font-size: 31px;
+        color: white;
       }
 
       .eyebrow {
@@ -898,6 +1090,10 @@ function GlobalStyles() {
         font-size: 13px;
         text-transform: uppercase;
         letter-spacing: 1.4px;
+      }
+
+      .eyebrow.local {
+        color: #60a5fa;
       }
 
       .header-right {
@@ -993,6 +1189,13 @@ function GlobalStyles() {
         gap: 20px;
       }
 
+      .premium-grid {
+        margin-top: 24px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+      }
+
       .card, .panel, .list-card, .history-card {
         background: var(--surface);
         border: 1px solid var(--border);
@@ -1068,6 +1271,13 @@ function GlobalStyles() {
         cursor: pointer;
       }
 
+      .list-card-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+      }
+
       .list-card.selected {
         border-color: #38bdf8;
         background: rgba(37,99,235,0.16);
@@ -1090,6 +1300,19 @@ function GlobalStyles() {
         margin-top: 10px;
       }
 
+      .profile-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: start;
+      }
+
+      .info-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px 12px;
+      }
+
       .note {
         background: rgba(250, 204, 21, 0.12);
         border: 1px solid rgba(250, 204, 21, 0.25);
@@ -1098,10 +1321,91 @@ function GlobalStyles() {
         margin: 14px 0;
       }
 
+      .timeline {
+        position: relative;
+        display: grid;
+        gap: 12px;
+      }
+
+      .timeline-item {
+        display: grid;
+        grid-template-columns: 18px 1fr;
+        gap: 10px;
+        align-items: start;
+      }
+
+      .timeline-dot {
+        width: 12px;
+        height: 12px;
+        margin-top: 18px;
+        border-radius: 50%;
+        background: #38bdf8;
+        box-shadow: 0 0 0 6px rgba(56,189,248,0.12);
+      }
+
       .history-card {
         background: rgba(15,23,42,0.25);
         padding: 14px;
-        margin-bottom: 10px;
+      }
+
+      .badge-soft,
+      .badge-danger,
+      .badge-warning,
+      .badge-success {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        padding: 5px 9px;
+        border-radius: 999px;
+        white-space: nowrap;
+      }
+
+      .badge-soft {
+        background: rgba(148,163,184,0.16);
+        color: var(--muted);
+        border: 1px solid rgba(148,163,184,0.28);
+      }
+
+      .badge-danger {
+        background: rgba(239,68,68,0.14);
+        color: #fecaca;
+        border: 1px solid rgba(239,68,68,0.35);
+      }
+
+      .badge-warning {
+        background: rgba(245,158,11,0.14);
+        color: #fde68a;
+        border: 1px solid rgba(245,158,11,0.35);
+      }
+
+      .badge-success {
+        background: rgba(34,197,94,0.14);
+        color: #bbf7d0;
+        border: 1px solid rgba(34,197,94,0.35);
+      }
+
+      .progress {
+        width: 100%;
+        height: 12px;
+        background: rgba(148,163,184,0.2);
+        border-radius: 999px;
+        overflow: hidden;
+        margin: 18px 0;
+      }
+
+      .progress div {
+        height: 100%;
+        background: linear-gradient(135deg, #2563eb, #22c55e);
+        border-radius: 999px;
+      }
+
+      .mini-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--border);
       }
 
       .toast {
@@ -1118,6 +1422,23 @@ function GlobalStyles() {
 
       .toast.success { background: #16a34a; }
       .toast.error { background: #dc2626; }
+
+      .skeleton {
+        background: linear-gradient(90deg, rgba(148,163,184,0.15), rgba(148,163,184,0.32), rgba(148,163,184,0.15));
+        background-size: 200% 100%;
+        animation: shimmer 1.2s infinite;
+        border-radius: 20px;
+      }
+
+      .skeleton-title {
+        width: 260px;
+        height: 42px;
+        margin-bottom: 24px;
+      }
+
+      .skeleton-card {
+        height: 140px;
+      }
 
       hr {
         border: none;
@@ -1148,13 +1469,20 @@ function GlobalStyles() {
         to { opacity: 1; transform: translateY(0); }
       }
 
+      @keyframes shimmer {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+      }
+
       @media (max-width: 950px) {
         .app { flex-direction: column; }
         .sidebar { width: 100%; min-height: auto; }
         .layout { grid-template-columns: 1fr; }
         .detail { position: static; }
         .cards { grid-template-columns: 1fr; }
+        .premium-grid { grid-template-columns: 1fr; }
         .grid-form { grid-template-columns: 1fr; }
+        .info-grid { grid-template-columns: 1fr; }
         .top-header { flex-direction: column; align-items: flex-start; gap: 14px; }
       }
     `}</style>
