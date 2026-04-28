@@ -24,6 +24,23 @@ const emptyAction = {
   description: "",
 };
 
+const emptyEntretien = {
+  beneficiaire_id: "",
+  date: "",
+  type: "",
+  compte_rendu: "",
+  suite_a_donner: "",
+};
+
+const emptyDossier = {
+  beneficiaire_id: "",
+  type: "",
+  statut: "Ouvert",
+  date_ouverture: "",
+  echeance: "",
+  notes: "",
+};
+
 export default function App() {
   const [token, setToken] = useState(() => localStorage.getItem("token"));
   const [user, setUser] = useState(() => {
@@ -120,15 +137,12 @@ export default function App() {
             {[
               ["dashboard", "Tableau de bord"],
               ["beneficiaires", "Bénéficiaires"],
+              ["accompagnement", "Accompagnement"],
               ["actions", "Actions"],
               ["documents", "Documents"],
               ["securite", "Confidentialité"],
             ].map(([key, label]) => (
-              <button
-                key={key}
-                className={page === key ? "active" : ""}
-                onClick={() => setPage(key)}
-              >
+              <button key={key} className={page === key ? "active" : ""} onClick={() => setPage(key)}>
                 {label}
               </button>
             ))}
@@ -145,10 +159,7 @@ export default function App() {
 
         {loading && <SkeletonDashboard />}
 
-        {!loading && page === "dashboard" && (
-          <Dashboard beneficiaires={beneficiaires} />
-        )}
-
+        {!loading && page === "dashboard" && <Dashboard beneficiaires={beneficiaires} />}
         {!loading && page === "beneficiaires" && (
           <Beneficiaires
             beneficiaires={beneficiaires}
@@ -157,7 +168,13 @@ export default function App() {
             showToast={showToast}
           />
         )}
-
+        {!loading && page === "accompagnement" && (
+          <Accompagnement
+            beneficiaires={beneficiaires}
+            authHeaders={authHeaders}
+            showToast={showToast}
+          />
+        )}
         {!loading && page === "actions" && <Actions />}
         {!loading && page === "documents" && <Documents />}
         {!loading && page === "securite" && <Securite />}
@@ -180,10 +197,7 @@ function HeaderPro({ user, theme, setTheme }) {
         <span className="status-dot"></span>
         <span>Backend en ligne</span>
         <span className="header-user">{user?.role || "bénévole"}</span>
-        <button
-          className="theme-toggle"
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-        >
+        <button className="theme-toggle" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
           {theme === "dark" ? "☀️ Clair" : "🌙 Sombre"}
         </button>
       </div>
@@ -197,7 +211,6 @@ function AuthPage({ setToken, setUser, showToast }) {
 
   async function submit(e) {
     e.preventDefault();
-
     const endpoint = mode === "login" ? "login" : "register";
 
     try {
@@ -223,10 +236,9 @@ function AuthPage({ setToken, setUser, showToast }) {
 
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
-
       setToken(data.token);
       setUser(data.user);
-      showToast("Connexion réussie.", "success");
+      showToast("Connexion réussie.");
     } catch (error) {
       console.error(error);
       showToast("Erreur de connexion au serveur.", "error");
@@ -241,36 +253,17 @@ function AuthPage({ setToken, setUser, showToast }) {
         <h2>{mode === "login" ? "Connexion" : "Créer un compte"}</h2>
 
         {mode === "register" && (
-          <input
-            placeholder="Nom"
-            value={form.nom}
-            onChange={(e) => setForm({ ...form, nom: e.target.value })}
-          />
+          <input placeholder="Nom" value={form.nom} onChange={(e) => setForm({ ...form, nom: e.target.value })} />
         )}
 
-        <input
-          placeholder="Email"
-          type="email"
-          value={form.email}
-          onChange={(e) => setForm({ ...form, email: e.target.value })}
-        />
-
-        <input
-          placeholder="Mot de passe"
-          type="password"
-          value={form.password}
-          onChange={(e) => setForm({ ...form, password: e.target.value })}
-        />
+        <input placeholder="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+        <input placeholder="Mot de passe" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
 
         <button type="submit" className="primary">
           {mode === "login" ? "Se connecter" : "Créer le compte"}
         </button>
 
-        <button
-          type="button"
-          className="secondary"
-          onClick={() => setMode(mode === "login" ? "register" : "login")}
-        >
+        <button type="button" className="secondary" onClick={() => setMode(mode === "login" ? "register" : "login")}>
           {mode === "login" ? "Créer un compte" : "J’ai déjà un compte"}
         </button>
       </form>
@@ -299,18 +292,13 @@ function Dashboard({ beneficiaires }) {
     }).length;
 
     const villes = new Set(beneficiaires.map((b) => b.ville).filter(Boolean)).size;
-
-    const complets = beneficiaires.filter(
-      (b) => b.telephone || b.email || b.adresse
-    ).length;
+    const complets = beneficiaires.filter((b) => b.telephone || b.email || b.adresse).length;
 
     return {
       total: beneficiaires.length,
       urgents,
       villes,
-      completude: beneficiaires.length
-        ? Math.round((complets / beneficiaires.length) * 100)
-        : 0,
+      completude: beneficiaires.length ? Math.round((complets / beneficiaires.length) * 100) : 0,
     };
   }, [beneficiaires]);
 
@@ -347,9 +335,7 @@ function Dashboard({ beneficiaires }) {
               <BadgePriorite value={b.priorite} />
             </div>
           ))}
-          {beneficiaires.length === 0 && (
-            <p className="muted">Aucune fiche pour le moment.</p>
-          )}
+          {beneficiaires.length === 0 && <p className="muted">Aucune fiche pour le moment.</p>}
         </div>
       </div>
     </section>
@@ -371,13 +357,21 @@ function BadgePriorite({ value }) {
   const clean = label.toLowerCase();
 
   let cls = "badge-soft";
-  if (clean.includes("haute") || clean.includes("élevée") || clean.includes("urgent")) {
-    cls = "badge-danger";
-  } else if (clean.includes("moyenne")) {
-    cls = "badge-warning";
-  } else if (clean.includes("basse") || clean.includes("faible")) {
-    cls = "badge-success";
-  }
+  if (clean.includes("haute") || clean.includes("élevée") || clean.includes("urgent")) cls = "badge-danger";
+  else if (clean.includes("moyenne")) cls = "badge-warning";
+  else if (clean.includes("basse") || clean.includes("faible")) cls = "badge-success";
+
+  return <span className={cls}>{label}</span>;
+}
+
+function BadgeStatut({ value }) {
+  const label = value || "Ouvert";
+  const clean = label.toLowerCase();
+
+  let cls = "badge-soft";
+  if (clean.includes("clos") || clean.includes("termin")) cls = "badge-success";
+  else if (clean.includes("urgent") || clean.includes("bloqu")) cls = "badge-danger";
+  else if (clean.includes("attente") || clean.includes("cours")) cls = "badge-warning";
 
   return <span className={cls}>{label}</span>;
 }
@@ -398,15 +392,11 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders, showT
   );
 
   useEffect(() => {
-    if (!selected && beneficiaires.length > 0) {
-      setSelected(beneficiaires[0]);
-    }
+    if (!selected && beneficiaires.length > 0) setSelected(beneficiaires[0]);
   }, [beneficiaires, selected]);
 
   useEffect(() => {
-    if (selected?.id) {
-      chargerActions(selected.id);
-    }
+    if (selected?.id) chargerActions(selected.id);
   }, [selected]);
 
   async function chargerActions(beneficiaireId) {
@@ -414,7 +404,6 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders, showT
       const response = await fetch(`${API_URL}/beneficiaires/${beneficiaireId}/actions`, {
         headers: authHeaders(),
       });
-
       const data = await response.json();
       setActions(Array.isArray(data) ? data : []);
     } catch (error) {
@@ -443,7 +432,6 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders, showT
       referent: beneficiaire.referent || "",
       notes: beneficiaire.notes || "",
     });
-
     setEditId(beneficiaire.id);
     setShowForm(true);
   }
@@ -454,11 +442,7 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders, showT
       return;
     }
 
-    const url =
-      editId === null
-        ? `${API_URL}/beneficiaires`
-        : `${API_URL}/beneficiaires/${editId}`;
-
+    const url = editId === null ? `${API_URL}/beneficiaires` : `${API_URL}/beneficiaires/${editId}`;
     const method = editId === null ? "POST" : "PUT";
 
     try {
@@ -476,12 +460,9 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders, showT
       setForm(emptyForm);
       setEditId(null);
       setShowForm(false);
-
       await chargerBeneficiaires();
 
-      showToast(
-        editId === null ? "Bénéficiaire ajouté avec succès." : "Fiche modifiée avec succès."
-      );
+      showToast(editId === null ? "Bénéficiaire ajouté avec succès." : "Fiche modifiée avec succès.");
     } catch (error) {
       console.error(error);
       showToast("Impossible d’enregistrer.", "error");
@@ -505,7 +486,6 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders, showT
       setSelected(null);
       setActions([]);
       await chargerBeneficiaires();
-
       showToast("Bénéficiaire supprimé.");
     } catch (error) {
       console.error(error);
@@ -535,7 +515,6 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders, showT
 
       setActionForm(emptyAction);
       await chargerActions(selected.id);
-
       showToast("Action ajoutée à l’historique.");
     } catch (error) {
       console.error(error);
@@ -543,64 +522,23 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders, showT
     }
   }
 
-  function imageToBase64(url) {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        canvas.width = img.width;
-        canvas.height = img.height;
-        canvas.getContext("2d").drawImage(img, 0, 0);
-        resolve(canvas.toDataURL("image/png"));
-      };
-      img.onerror = reject;
-      img.src = url;
-    });
-  }
-
   async function exporterPDF() {
     if (!selected) return;
 
     const doc = new jsPDF("p", "mm", "a4");
-    const pageWidth = doc.internal.pageSize.getWidth();
-
-    let logoBase64 = null;
-    try {
-      logoBase64 = await imageToBase64(logo);
-    } catch {
-      logoBase64 = null;
-    }
-
     doc.setFillColor(15, 76, 129);
-    doc.rect(0, 0, pageWidth, 36, "F");
-
-    if (logoBase64) doc.addImage(logoBase64, "PNG", 12, 7, 22, 22);
-
+    doc.rect(0, 0, 210, 36, "F");
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(18);
-    doc.text("Suivi Solidaire", logoBase64 ? 40 : 14, 16);
+    doc.text("Suivi Solidaire", 14, 16);
     doc.setFontSize(11);
-    doc.text("La Voix des Ancêtres — Fiche bénéficiaire", logoBase64 ? 40 : 14, 25);
+    doc.text("La Voix des Ancêtres — Fiche bénéficiaire", 14, 25);
 
     doc.setTextColor(30, 41, 59);
     doc.setFontSize(16);
     doc.text(selected.nom || "Bénéficiaire", 14, 50);
 
-    doc.setFontSize(10);
-    doc.setTextColor(100, 116, 139);
-    doc.text(`Export généré le ${new Date().toLocaleDateString("fr-FR")}`, 14, 57);
-
-    let y = 72;
-
-    function sectionTitle(title) {
-      doc.setTextColor(15, 76, 129);
-      doc.setFontSize(13);
-      doc.text(title, 14, y);
-      y += 8;
-      doc.setTextColor(30, 41, 59);
-      doc.setFontSize(10);
-    }
+    let y = 68;
 
     function row(label, value) {
       doc.setFont(undefined, "bold");
@@ -610,7 +548,6 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders, showT
       y += 7;
     }
 
-    sectionTitle("Informations générales");
     row("Âge", selected.age);
     row("Profil", selected.profil);
     row("Ville", selected.ville);
@@ -618,55 +555,14 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders, showT
     row("Téléphone", selected.telephone);
     row("Email", selected.email);
     row("Référent", selected.referent);
-
-    y += 4;
-    sectionTitle("Situation sociale");
     row("Priorité", selected.priorite);
     row("Besoins", selected.besoin);
 
     doc.setFont(undefined, "bold");
-    doc.text("Notes :", 14, y);
-    y += 6;
-
+    doc.text("Notes :", 14, y + 4);
+    y += 12;
     doc.setFont(undefined, "normal");
-    const noteLines = doc.splitTextToSize(
-      selected.notes || "Aucune note renseignée.",
-      175
-    );
-    doc.text(noteLines, 14, y);
-    y += noteLines.length * 6 + 10;
-
-    if (y > 235) {
-      doc.addPage();
-      y = 20;
-    }
-
-    sectionTitle("Historique des actions");
-
-    if (actions.length === 0) {
-      doc.setTextColor(100, 116, 139);
-      doc.text("Aucune action enregistrée.", 14, y);
-    } else {
-      actions.forEach((action) => {
-        if (y > 260) {
-          doc.addPage();
-          y = 20;
-        }
-
-        doc.setFillColor(248, 250, 252);
-        doc.roundedRect(14, y - 5, 182, 20, 3, 3, "F");
-
-        doc.setTextColor(30, 41, 59);
-        doc.setFont(undefined, "bold");
-        doc.text(`${action.date || ""} — ${action.type || ""}`, 18, y + 1);
-
-        doc.setFont(undefined, "normal");
-        const desc = doc.splitTextToSize(action.description || "", 165);
-        doc.text(desc, 18, y + 8);
-
-        y += Math.max(22, desc.length * 5 + 14);
-      });
-    }
+    doc.text(doc.splitTextToSize(selected.notes || "Aucune note renseignée.", 175), 14, y);
 
     doc.save(`fiche-${selected.nom || "beneficiaire"}.pdf`);
     showToast("PDF exporté avec succès.");
@@ -709,17 +605,8 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders, showT
               </div>
 
               <div className="actions-row">
-                <button className="primary" onClick={enregistrer}>
-                  Enregistrer
-                </button>
-                <button
-                  className="secondary"
-                  onClick={() => {
-                    setShowForm(false);
-                    setEditId(null);
-                    setForm(emptyForm);
-                  }}
-                >
+                <button className="primary" onClick={enregistrer}>Enregistrer</button>
+                <button className="secondary" onClick={() => { setShowForm(false); setEditId(null); setForm(emptyForm); }}>
                   Annuler
                 </button>
               </div>
@@ -748,132 +635,382 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders, showT
           </div>
         </section>
 
-        <FicheDetaillee
-          beneficiaire={selected}
-          actions={actions}
-          actionForm={actionForm}
-          setActionForm={setActionForm}
-          ajouterAction={ajouterAction}
-          ouvrirModification={ouvrirModification}
-          supprimer={supprimer}
-          exporterPDF={exporterPDF}
-        />
+        <aside className="panel detail scale-in">
+          {!selected ? (
+            <>
+              <h2>Aucun bénéficiaire sélectionné</h2>
+              <p className="muted">Sélectionne une fiche ou ajoute un nouveau bénéficiaire.</p>
+            </>
+          ) : (
+            <>
+              <div className="profile-head">
+                <div>
+                  <h2>{selected.nom}</h2>
+                  <p className="muted">{selected.profil || "Profil non renseigné"}</p>
+                </div>
+                <BadgePriorite value={selected.priorite} />
+              </div>
+
+              <button className="primary" onClick={exporterPDF}>Exporter la fiche en PDF</button>
+
+              <div className="info-grid">
+                <p><strong>Âge :</strong> {selected.age}</p>
+                <p><strong>Ville :</strong> {selected.ville}</p>
+                <p><strong>Adresse :</strong> {selected.adresse || "Non renseignée"}</p>
+                <p><strong>Téléphone :</strong> {selected.telephone || "Non renseigné"}</p>
+                <p><strong>Email :</strong> {selected.email || "Non renseigné"}</p>
+                <p><strong>Référent :</strong> {selected.referent || "Non renseigné"}</p>
+              </div>
+
+              <hr />
+              <p><strong>Besoins :</strong> {selected.besoin || "Non renseignés"}</p>
+              <div className="note">{selected.notes || "Aucune note renseignée."}</div>
+
+              <button className="secondary" onClick={() => ouvrirModification(selected)}>Modifier cette fiche</button>
+              <button className="danger" onClick={() => supprimer(selected)}>Supprimer ce bénéficiaire</button>
+
+              <hr />
+              <h3>Ajouter une action</h3>
+
+              <input type="date" value={actionForm.date} onChange={(e) => setActionForm({ ...actionForm, date: e.target.value })} />
+
+              <select value={actionForm.type} onChange={(e) => setActionForm({ ...actionForm, type: e.target.value })}>
+                <option value="">Type d’action</option>
+                <option value="Appel">Appel</option>
+                <option value="Visite">Visite</option>
+                <option value="Dossier administratif">Dossier administratif</option>
+                <option value="Aide alimentaire">Aide alimentaire</option>
+                <option value="Santé">Santé</option>
+                <option value="Logement">Logement</option>
+                <option value="Autre">Autre</option>
+              </select>
+
+              <textarea
+                placeholder="Description de l’action..."
+                value={actionForm.description}
+                onChange={(e) => setActionForm({ ...actionForm, description: e.target.value })}
+              />
+
+              <button className="primary" onClick={ajouterAction}>Ajouter l’action</button>
+
+              <hr />
+              <h3>Timeline</h3>
+
+              {actions.length === 0 ? (
+                <p className="muted">Aucune action enregistrée.</p>
+              ) : (
+                <div className="timeline">
+                  {actions.map((action) => (
+                    <div key={action.id} className="timeline-item">
+                      <div className="timeline-dot"></div>
+                      <div className="history-card">
+                        <p><strong>{action.date}</strong> — {action.type}</p>
+                        <p>{action.description}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </aside>
       </div>
     </section>
   );
 }
 
-function FicheDetaillee({
-  beneficiaire,
-  actions,
-  actionForm,
-  setActionForm,
-  ajouterAction,
-  ouvrirModification,
-  supprimer,
-  exporterPDF,
-}) {
-  if (!beneficiaire) {
-    return (
-      <div className="panel detail">
-        <h2>Aucun bénéficiaire sélectionné</h2>
-        <p className="muted">Sélectionne une fiche ou ajoute un nouveau bénéficiaire.</p>
-      </div>
-    );
+function Accompagnement({ beneficiaires, authHeaders, showToast }) {
+  const [tab, setTab] = useState("entretiens");
+  const [entretiens, setEntretiens] = useState([]);
+  const [dossiers, setDossiers] = useState([]);
+  const [entretienForm, setEntretienForm] = useState(emptyEntretien);
+  const [dossierForm, setDossierForm] = useState(emptyDossier);
+
+  async function chargerEntretiens() {
+    try {
+      const res = await fetch(`${API_URL}/entretiens`, { headers: authHeaders() });
+      const data = await res.json();
+      setEntretiens(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error(error);
+      showToast("Impossible de charger les entretiens.", "error");
+    }
+  }
+
+  async function chargerDossiers() {
+    try {
+      const res = await fetch(`${API_URL}/dossiers-instruction`, { headers: authHeaders() });
+      const data = await res.json();
+      setDossiers(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error(error);
+      showToast("Impossible de charger les dossiers.", "error");
+    }
+  }
+
+  useEffect(() => {
+    chargerEntretiens();
+    chargerDossiers();
+  }, []);
+
+  async function ajouterEntretien() {
+    if (!entretienForm.beneficiaire_id || !entretienForm.date || !entretienForm.type) {
+      showToast("Choisis un bénéficiaire, une date et un type d’entretien.", "error");
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_URL}/entretiens`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify(entretienForm),
+      });
+
+      if (!res.ok) throw new Error();
+
+      setEntretienForm(emptyEntretien);
+      await chargerEntretiens();
+      showToast("Entretien ajouté.");
+    } catch (error) {
+      console.error(error);
+      showToast("Erreur lors de l’ajout de l’entretien.", "error");
+    }
+  }
+
+  async function supprimerEntretien(id) {
+    if (!window.confirm("Supprimer cet entretien ?")) return;
+
+    try {
+      const res = await fetch(`${API_URL}/entretiens/${id}`, {
+        method: "DELETE",
+        headers: authHeaders(),
+      });
+
+      if (!res.ok) throw new Error();
+
+      await chargerEntretiens();
+      showToast("Entretien supprimé.");
+    } catch (error) {
+      console.error(error);
+      showToast("Erreur suppression entretien.", "error");
+    }
+  }
+
+  async function ajouterDossier() {
+    if (!dossierForm.beneficiaire_id || !dossierForm.type) {
+      showToast("Choisis un bénéficiaire et un type de dossier.", "error");
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_URL}/dossiers-instruction`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify(dossierForm),
+      });
+
+      if (!res.ok) throw new Error();
+
+      setDossierForm(emptyDossier);
+      await chargerDossiers();
+      showToast("Dossier d’instruction ajouté.");
+    } catch (error) {
+      console.error(error);
+      showToast("Erreur lors de l’ajout du dossier.", "error");
+    }
+  }
+
+  async function supprimerDossier(id) {
+    if (!window.confirm("Supprimer ce dossier ?")) return;
+
+    try {
+      const res = await fetch(`${API_URL}/dossiers-instruction/${id}`, {
+        method: "DELETE",
+        headers: authHeaders(),
+      });
+
+      if (!res.ok) throw new Error();
+
+      await chargerDossiers();
+      showToast("Dossier supprimé.");
+    } catch (error) {
+      console.error(error);
+      showToast("Erreur suppression dossier.", "error");
+    }
   }
 
   return (
-    <aside className="panel detail scale-in">
-      <h2>Fiche détaillée</h2>
-
-      <div className="profile-head">
+    <section className="fade-in">
+      <div className="page-header">
         <div>
-          <h3>{beneficiaire.nom}</h3>
-          <p className="muted">{beneficiaire.profil || "Profil non renseigné"}</p>
+          <p className="eyebrow local">Suivi approfondi</p>
+          <h1>Accompagnement</h1>
         </div>
-        <BadgePriorite value={beneficiaire.priorite} />
       </div>
 
-      <button className="primary" onClick={exporterPDF}>
-        Exporter la fiche en PDF
-      </button>
-
-      <div className="info-grid">
-        <p><strong>Âge :</strong> {beneficiaire.age}</p>
-        <p><strong>Ville :</strong> {beneficiaire.ville}</p>
-        <p><strong>Adresse :</strong> {beneficiaire.adresse || "Non renseignée"}</p>
-        <p><strong>Téléphone :</strong> {beneficiaire.telephone || "Non renseigné"}</p>
-        <p><strong>Email :</strong> {beneficiaire.email || "Non renseigné"}</p>
-        <p><strong>Référent :</strong> {beneficiaire.referent || "Non renseigné"}</p>
+      <div className="tabs">
+        <button className={tab === "entretiens" ? "active-tab" : ""} onClick={() => setTab("entretiens")}>
+          Entretiens
+        </button>
+        <button className={tab === "dossiers" ? "active-tab" : ""} onClick={() => setTab("dossiers")}>
+          Dossiers d’instruction
+        </button>
       </div>
 
-      <hr />
+      {tab === "entretiens" && (
+        <div className="accompagnement-grid">
+          <div className="panel">
+            <h2>Nouvel entretien</h2>
 
-      <p><strong>Besoins :</strong> {beneficiaire.besoin || "Non renseignés"}</p>
-      <div className="note">{beneficiaire.notes || "Aucune note renseignée."}</div>
+            <select
+              value={entretienForm.beneficiaire_id}
+              onChange={(e) => setEntretienForm({ ...entretienForm, beneficiaire_id: e.target.value })}
+            >
+              <option value="">Choisir un bénéficiaire</option>
+              {beneficiaires.map((b) => (
+                <option key={b.id} value={b.id}>{b.nom}</option>
+              ))}
+            </select>
 
-      <button className="secondary" onClick={() => ouvrirModification(beneficiaire)}>
-        Modifier cette fiche
-      </button>
+            <input
+              type="date"
+              value={entretienForm.date}
+              onChange={(e) => setEntretienForm({ ...entretienForm, date: e.target.value })}
+            />
 
-      <button className="danger" onClick={() => supprimer(beneficiaire)}>
-        Supprimer ce bénéficiaire
-      </button>
+            <select
+              value={entretienForm.type}
+              onChange={(e) => setEntretienForm({ ...entretienForm, type: e.target.value })}
+            >
+              <option value="">Type d’entretien</option>
+              <option value="Premier accueil">Premier accueil</option>
+              <option value="Suivi social">Suivi social</option>
+              <option value="Entretien téléphonique">Entretien téléphonique</option>
+              <option value="Entretien administratif">Entretien administratif</option>
+              <option value="Autre">Autre</option>
+            </select>
 
-      <hr />
+            <textarea
+              placeholder="Compte-rendu de l’entretien..."
+              value={entretienForm.compte_rendu}
+              onChange={(e) => setEntretienForm({ ...entretienForm, compte_rendu: e.target.value })}
+            />
 
-      <h3>Ajouter une action</h3>
+            <textarea
+              placeholder="Suite à donner..."
+              value={entretienForm.suite_a_donner}
+              onChange={(e) => setEntretienForm({ ...entretienForm, suite_a_donner: e.target.value })}
+            />
 
-      <input
-        type="date"
-        value={actionForm.date}
-        onChange={(e) => setActionForm({ ...actionForm, date: e.target.value })}
-      />
+            <button className="primary" onClick={ajouterEntretien}>Ajouter l’entretien</button>
+          </div>
 
-      <select
-        value={actionForm.type}
-        onChange={(e) => setActionForm({ ...actionForm, type: e.target.value })}
-      >
-        <option value="">Type d’action</option>
-        <option value="Appel">Appel</option>
-        <option value="Visite">Visite</option>
-        <option value="Dossier administratif">Dossier administratif</option>
-        <option value="Aide alimentaire">Aide alimentaire</option>
-        <option value="Santé">Santé</option>
-        <option value="Logement">Logement</option>
-        <option value="Autre">Autre</option>
-      </select>
+          <div className="panel">
+            <h2>Historique des entretiens</h2>
 
-      <textarea
-        placeholder="Description de l’action..."
-        value={actionForm.description}
-        onChange={(e) => setActionForm({ ...actionForm, description: e.target.value })}
-      />
-
-      <button className="primary" onClick={ajouterAction}>
-        Ajouter l’action
-      </button>
-
-      <hr />
-
-      <h3>Timeline</h3>
-
-      {actions.length === 0 ? (
-        <p className="muted">Aucune action enregistrée.</p>
-      ) : (
-        <div className="timeline">
-          {actions.map((action) => (
-            <div key={action.id} className="timeline-item">
-              <div className="timeline-dot"></div>
-              <div className="history-card">
-                <p><strong>{action.date}</strong> — {action.type}</p>
-                <p>{action.description}</p>
+            {entretiens.length === 0 ? (
+              <p className="muted">Aucun entretien enregistré.</p>
+            ) : (
+              <div className="timeline">
+                {entretiens.map((e) => (
+                  <div key={e.id} className="timeline-item">
+                    <div className="timeline-dot"></div>
+                    <div className="history-card">
+                      <div className="list-card-top">
+                        <p><strong>{e.date}</strong> — {e.type}</p>
+                        <button className="mini-danger" onClick={() => supprimerEntretien(e.id)}>Supprimer</button>
+                      </div>
+                      <p className="muted">{e.beneficiaires?.nom || "Bénéficiaire"}</p>
+                      <p>{e.compte_rendu || "Aucun compte-rendu."}</p>
+                      <p><strong>Suite :</strong> {e.suite_a_donner || "Non renseignée"}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
-            </div>
-          ))}
+            )}
+          </div>
         </div>
       )}
-    </aside>
+
+      {tab === "dossiers" && (
+        <div className="accompagnement-grid">
+          <div className="panel">
+            <h2>Nouveau dossier d’instruction</h2>
+
+            <select
+              value={dossierForm.beneficiaire_id}
+              onChange={(e) => setDossierForm({ ...dossierForm, beneficiaire_id: e.target.value })}
+            >
+              <option value="">Choisir un bénéficiaire</option>
+              {beneficiaires.map((b) => (
+                <option key={b.id} value={b.id}>{b.nom}</option>
+              ))}
+            </select>
+
+            <input
+              placeholder="Type de dossier"
+              value={dossierForm.type}
+              onChange={(e) => setDossierForm({ ...dossierForm, type: e.target.value })}
+            />
+
+            <select
+              value={dossierForm.statut}
+              onChange={(e) => setDossierForm({ ...dossierForm, statut: e.target.value })}
+            >
+              <option value="Ouvert">Ouvert</option>
+              <option value="En cours">En cours</option>
+              <option value="En attente">En attente</option>
+              <option value="Urgent">Urgent</option>
+              <option value="Clos">Clos</option>
+            </select>
+
+            <input
+              type="date"
+              value={dossierForm.date_ouverture}
+              onChange={(e) => setDossierForm({ ...dossierForm, date_ouverture: e.target.value })}
+            />
+
+            <input
+              type="date"
+              value={dossierForm.echeance}
+              onChange={(e) => setDossierForm({ ...dossierForm, echeance: e.target.value })}
+            />
+
+            <textarea
+              placeholder="Notes du dossier..."
+              value={dossierForm.notes}
+              onChange={(e) => setDossierForm({ ...dossierForm, notes: e.target.value })}
+            />
+
+            <button className="primary" onClick={ajouterDossier}>Ajouter le dossier</button>
+          </div>
+
+          <div className="panel">
+            <h2>Dossiers d’instruction</h2>
+
+            {dossiers.length === 0 ? (
+              <p className="muted">Aucun dossier enregistré.</p>
+            ) : (
+              <div className="list">
+                {dossiers.map((d) => (
+                  <div key={d.id} className="history-card">
+                    <div className="list-card-top">
+                      <h3>{d.type}</h3>
+                      <BadgeStatut value={d.statut} />
+                    </div>
+                    <p className="muted">{d.beneficiaires?.nom || "Bénéficiaire"}</p>
+                    <p><strong>Ouverture :</strong> {d.date_ouverture || "Non renseignée"}</p>
+                    <p><strong>Échéance :</strong> {d.echeance || "Non renseignée"}</p>
+                    <p>{d.notes || "Aucune note."}</p>
+                    <button className="mini-danger" onClick={() => supprimerDossier(d.id)}>Supprimer</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -920,17 +1057,7 @@ function GlobalStyles() {
     <style>{`
       * { box-sizing: border-box; }
 
-      :root {
-        --blue: #2563eb;
-        --blue-dark: #0f4c81;
-        --green: #22c55e;
-        --red: #ef4444;
-      }
-
-      body {
-        margin: 0;
-        font-family: Inter, Arial, sans-serif;
-      }
+      body { margin: 0; font-family: Inter, Arial, sans-serif; }
 
       .theme-dark {
         --bg: #07111f;
@@ -964,9 +1091,7 @@ function GlobalStyles() {
 
       .auth-page {
         min-height: 100vh;
-        background:
-          radial-gradient(circle at top left, rgba(37,99,235,0.4), transparent 32%),
-          linear-gradient(135deg, #07111f, #0f4c81);
+        background: linear-gradient(135deg, #07111f, #0f4c81);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -978,57 +1103,34 @@ function GlobalStyles() {
         padding: 34px;
         border-radius: 28px;
         background: rgba(15, 23, 42, 0.86);
-        backdrop-filter: blur(18px);
         border: 1px solid rgba(255,255,255,0.12);
         box-shadow: 0 30px 90px rgba(0,0,0,0.35);
       }
 
-      .auth-logo {
-        width: 90px;
-        height: 90px;
+      .auth-logo, .brand-logo {
         object-fit: contain;
         background: white;
         padding: 8px;
         border-radius: 22px;
       }
 
-      .auth-card input,
-      .auth-card button {
-        margin-top: 12px;
-      }
+      .auth-logo { width: 90px; height: 90px; }
+      .brand-logo { width: 68px; height: 68px; }
+
+      .auth-card input, .auth-card button { margin-top: 12px; }
 
       .sidebar {
         width: 310px;
         padding: 24px;
         background: rgba(2, 6, 23, 0.72);
-        backdrop-filter: blur(20px);
         border-right: 1px solid var(--border);
         display: flex;
         flex-direction: column;
         justify-content: space-between;
       }
 
-      .brand {
-        display: flex;
-        align-items: center;
-        gap: 14px;
-        margin-bottom: 18px;
-      }
-
-      .brand-logo {
-        width: 68px;
-        height: 68px;
-        object-fit: contain;
-        background: white;
-        padding: 6px;
-        border-radius: 18px;
-        box-shadow: 0 12px 30px rgba(37,99,235,0.25);
-      }
-
-      .brand h2 {
-        margin: 0;
-        font-size: 22px;
-      }
+      .brand { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+      .brand h2 { margin: 0; font-size: 22px; }
 
       .badge-production {
         display: inline-block;
@@ -1054,17 +1156,13 @@ function GlobalStyles() {
       }
 
       .sidebar button:hover,
-      .sidebar button.active {
-        background: linear-gradient(135deg, var(--blue), #38bdf8);
-        color: white;
-        transform: translateX(4px);
+      .sidebar button.active,
+      .active-tab {
+        background: linear-gradient(135deg, #2563eb, #38bdf8) !important;
+        color: white !important;
       }
 
-      .main {
-        flex: 1;
-        padding: 28px;
-        overflow-x: auto;
-      }
+      .main { flex: 1; padding: 28px; overflow-x: auto; }
 
       .top-header {
         background: linear-gradient(135deg, rgba(15,76,129,0.98), rgba(37,99,235,0.94));
@@ -1075,14 +1173,9 @@ function GlobalStyles() {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        box-shadow: 0 24px 60px rgba(37, 99, 235, 0.28);
       }
 
-      .top-header h1 {
-        margin: 4px 0 0;
-        font-size: 31px;
-        color: white;
-      }
+      .top-header h1 { margin: 4px 0 0; font-size: 31px; color: white; }
 
       .eyebrow {
         margin: 0;
@@ -1092,9 +1185,7 @@ function GlobalStyles() {
         letter-spacing: 1.4px;
       }
 
-      .eyebrow.local {
-        color: #60a5fa;
-      }
+      .eyebrow.local { color: #60a5fa; }
 
       .header-right {
         display: flex;
@@ -1111,11 +1202,9 @@ function GlobalStyles() {
         height: 10px;
         background: #22c55e;
         border-radius: 50%;
-        box-shadow: 0 0 0 6px rgba(34,197,94,0.18);
       }
 
-      .header-user,
-      .theme-toggle {
+      .header-user, .theme-toggle {
         background: white;
         color: #0f4c81;
         padding: 7px 10px;
@@ -1132,14 +1221,11 @@ function GlobalStyles() {
         transition: all 0.22s ease;
       }
 
-      button:hover {
-        transform: translateY(-1px);
-      }
+      button:hover { transform: translateY(-1px); }
 
       .primary {
         background: linear-gradient(135deg, #2563eb, #38bdf8);
         color: white;
-        box-shadow: 0 12px 28px rgba(37,99,235,0.25);
       }
 
       .secondary {
@@ -1148,10 +1234,15 @@ function GlobalStyles() {
         border: 1px solid var(--border);
       }
 
-      .danger {
+      .danger, .mini-danger {
         background: rgba(239, 68, 68, 0.16) !important;
         color: #fecaca !important;
         border: 1px solid rgba(239,68,68,0.35) !important;
+      }
+
+      .mini-danger {
+        padding: 7px 10px;
+        font-size: 12px;
       }
 
       input, textarea, select {
@@ -1163,25 +1254,13 @@ function GlobalStyles() {
         background: var(--input);
         color: var(--text);
         outline: none;
+        margin-top: 10px;
       }
 
-      input:focus, textarea:focus, select:focus {
-        border-color: #38bdf8;
-        box-shadow: 0 0 0 4px rgba(56,189,248,0.12);
-      }
+      textarea { min-height: 90px; resize: vertical; }
 
-      textarea {
-        min-height: 90px;
-        resize: vertical;
-      }
-
-      h1, h2, h3, p {
-        color: var(--text);
-      }
-
-      .muted {
-        color: var(--muted);
-      }
+      h1, h2, h3, p, span { color: var(--text); }
+      .muted { color: var(--muted); }
 
       .cards {
         display: grid;
@@ -1189,7 +1268,7 @@ function GlobalStyles() {
         gap: 20px;
       }
 
-      .premium-grid {
+      .premium-grid, .accompagnement-grid {
         margin-top: 24px;
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -1201,23 +1280,10 @@ function GlobalStyles() {
         border: 1px solid var(--border);
         border-radius: 24px;
         box-shadow: 0 18px 50px rgba(0,0,0,0.18);
-        backdrop-filter: blur(14px);
       }
 
-      .card {
-        padding: 28px;
-      }
-
-      .card p {
-        color: var(--muted);
-        margin: 0 0 10px;
-      }
-
-      .card h2 {
-        font-size: 34px;
-        margin: 0;
-        color: #60a5fa;
-      }
+      .card, .panel { padding: 24px; }
+      .card h2 { font-size: 34px; margin: 0; color: #60a5fa; }
 
       .page-header {
         display: flex;
@@ -1232,17 +1298,7 @@ function GlobalStyles() {
         align-items: start;
       }
 
-      .search {
-        margin-bottom: 18px;
-      }
-
-      .panel {
-        padding: 24px;
-      }
-
-      .form-panel {
-        margin-bottom: 22px;
-      }
+      .search { margin-bottom: 18px; }
 
       .grid-form {
         display: grid;
@@ -1257,14 +1313,9 @@ function GlobalStyles() {
         margin-top: 12px;
       }
 
-      .actions-row button {
-        flex: 1;
-      }
+      .actions-row button { flex: 1; }
 
-      .list {
-        display: grid;
-        gap: 14px;
-      }
+      .list { display: grid; gap: 14px; }
 
       .list-card {
         padding: 18px;
@@ -1285,19 +1336,11 @@ function GlobalStyles() {
 
       .hover-card:hover {
         transform: translateY(-4px);
-        box-shadow: 0 24px 70px rgba(37,99,235,0.22);
       }
 
       .detail {
         position: sticky;
         top: 24px;
-      }
-
-      .detail input,
-      .detail select,
-      .detail textarea,
-      .detail button {
-        margin-top: 10px;
       }
 
       .profile-head {
@@ -1321,11 +1364,7 @@ function GlobalStyles() {
         margin: 14px 0;
       }
 
-      .timeline {
-        position: relative;
-        display: grid;
-        gap: 12px;
-      }
+      .timeline { display: grid; gap: 12px; }
 
       .timeline-item {
         display: grid;
@@ -1340,7 +1379,6 @@ function GlobalStyles() {
         margin-top: 18px;
         border-radius: 50%;
         background: #38bdf8;
-        box-shadow: 0 0 0 6px rgba(56,189,248,0.12);
       }
 
       .history-card {
@@ -1348,13 +1386,20 @@ function GlobalStyles() {
         padding: 14px;
       }
 
-      .badge-soft,
-      .badge-danger,
-      .badge-warning,
-      .badge-success {
+      .tabs {
+        display: flex;
+        gap: 12px;
+        margin: 20px 0;
+      }
+
+      .tabs button {
+        background: var(--surface);
+        color: var(--text);
+        border: 1px solid var(--border);
+      }
+
+      .badge-soft, .badge-danger, .badge-warning, .badge-success {
         display: inline-flex;
-        align-items: center;
-        justify-content: center;
         font-size: 12px;
         padding: 5px 9px;
         border-radius: 999px;
@@ -1397,7 +1442,6 @@ function GlobalStyles() {
       .progress div {
         height: 100%;
         background: linear-gradient(135deg, #2563eb, #22c55e);
-        border-radius: 999px;
       }
 
       .mini-row {
@@ -1416,7 +1460,6 @@ function GlobalStyles() {
         padding: 14px 18px;
         border-radius: 16px;
         color: white;
-        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.25);
         animation: slideDown 0.25s ease;
       }
 
@@ -1430,15 +1473,8 @@ function GlobalStyles() {
         border-radius: 20px;
       }
 
-      .skeleton-title {
-        width: 260px;
-        height: 42px;
-        margin-bottom: 24px;
-      }
-
-      .skeleton-card {
-        height: 140px;
-      }
+      .skeleton-title { width: 260px; height: 42px; margin-bottom: 24px; }
+      .skeleton-card { height: 140px; }
 
       hr {
         border: none;
@@ -1446,13 +1482,8 @@ function GlobalStyles() {
         margin: 18px 0;
       }
 
-      .fade-in {
-        animation: fadeIn 0.35s ease both;
-      }
-
-      .scale-in {
-        animation: scaleIn 0.25s ease both;
-      }
+      .fade-in { animation: fadeIn 0.35s ease both; }
+      .scale-in { animation: scaleIn 0.25s ease both; }
 
       @keyframes fadeIn {
         from { opacity: 0; transform: translateY(10px); }
@@ -1477,12 +1508,10 @@ function GlobalStyles() {
       @media (max-width: 950px) {
         .app { flex-direction: column; }
         .sidebar { width: 100%; min-height: auto; }
-        .layout { grid-template-columns: 1fr; }
+        .layout, .premium-grid, .accompagnement-grid { grid-template-columns: 1fr; }
         .detail { position: static; }
         .cards { grid-template-columns: 1fr; }
-        .premium-grid { grid-template-columns: 1fr; }
-        .grid-form { grid-template-columns: 1fr; }
-        .info-grid { grid-template-columns: 1fr; }
+        .grid-form, .info-grid { grid-template-columns: 1fr; }
         .top-header { flex-direction: column; align-items: flex-start; gap: 14px; }
       }
     `}</style>
