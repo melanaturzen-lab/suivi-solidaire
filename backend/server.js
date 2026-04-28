@@ -68,6 +68,7 @@ app.post("/api/auth/register", async (req, res) => {
 
     res.json({ success: true, id: data.id });
   } catch (error) {
+    console.error("Erreur register:", error);
     res.status(500).json({ error: "Erreur création utilisateur" });
   }
 });
@@ -190,20 +191,16 @@ app.put("/api/beneficiaires/:id", authMiddleware, async (req, res) => {
 });
 
 app.delete("/api/beneficiaires/:id", authMiddleware, async (req, res) => {
-  const { error: actionsError } = await supabase
-    .from("actions")
-    .delete()
-    .eq("beneficiaire_id", req.params.id);
+  const id = req.params.id;
 
-  if (actionsError) {
-    console.error("Erreur delete actions:", actionsError);
-    return res.status(500).json({ error: actionsError.message });
-  }
+  await supabase.from("actions").delete().eq("beneficiaire_id", id);
+  await supabase.from("entretiens").delete().eq("beneficiaire_id", id);
+  await supabase.from("dossiers_instruction").delete().eq("beneficiaire_id", id);
 
   const { error } = await supabase
     .from("beneficiaires")
     .delete()
-    .eq("id", req.params.id);
+    .eq("id", id);
 
   if (error) {
     console.error("Erreur delete beneficiaire:", error);
@@ -262,6 +259,216 @@ app.delete("/api/actions/:id", authMiddleware, async (req, res) => {
 
   if (error) {
     console.error("Erreur delete action:", error);
+    return res.status(500).json({ error: error.message });
+  }
+
+  res.json({ success: true });
+});
+
+/* ACCOMPAGNEMENT - ENTRETIENS */
+
+app.get("/api/entretiens", authMiddleware, async (req, res) => {
+  const { data, error } = await supabase
+    .from("entretiens")
+    .select(`
+      *,
+      beneficiaires (
+        id,
+        nom,
+        ville
+      )
+    `)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Erreur get entretiens:", error);
+    return res.status(500).json({ error: error.message });
+  }
+
+  res.json(data);
+});
+
+app.get("/api/beneficiaires/:id/entretiens", authMiddleware, async (req, res) => {
+  const { data, error } = await supabase
+    .from("entretiens")
+    .select("*")
+    .eq("beneficiaire_id", req.params.id)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Erreur get entretiens beneficiaire:", error);
+    return res.status(500).json({ error: error.message });
+  }
+
+  res.json(data);
+});
+
+app.post("/api/entretiens", authMiddleware, async (req, res) => {
+  const e = req.body;
+
+  if (!e.beneficiaire_id) {
+    return res.status(400).json({ error: "beneficiaire_id obligatoire" });
+  }
+
+  const { data, error } = await supabase
+    .from("entretiens")
+    .insert([
+      {
+        beneficiaire_id: e.beneficiaire_id,
+        date: e.date || new Date().toISOString().slice(0, 10),
+        type: e.type || "",
+        compte_rendu: e.compte_rendu || "",
+        suite_a_donner: e.suite_a_donner || "",
+      },
+    ])
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Erreur add entretien:", error);
+    return res.status(500).json({ error: error.message });
+  }
+
+  res.json(data);
+});
+
+app.put("/api/entretiens/:id", authMiddleware, async (req, res) => {
+  const e = req.body;
+
+  const { data, error } = await supabase
+    .from("entretiens")
+    .update({
+      date: e.date || "",
+      type: e.type || "",
+      compte_rendu: e.compte_rendu || "",
+      suite_a_donner: e.suite_a_donner || "",
+    })
+    .eq("id", req.params.id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Erreur update entretien:", error);
+    return res.status(500).json({ error: error.message });
+  }
+
+  res.json(data);
+});
+
+app.delete("/api/entretiens/:id", authMiddleware, async (req, res) => {
+  const { error } = await supabase
+    .from("entretiens")
+    .delete()
+    .eq("id", req.params.id);
+
+  if (error) {
+    console.error("Erreur delete entretien:", error);
+    return res.status(500).json({ error: error.message });
+  }
+
+  res.json({ success: true });
+});
+
+/* ACCOMPAGNEMENT - DOSSIERS D'INSTRUCTION */
+
+app.get("/api/dossiers-instruction", authMiddleware, async (req, res) => {
+  const { data, error } = await supabase
+    .from("dossiers_instruction")
+    .select(`
+      *,
+      beneficiaires (
+        id,
+        nom,
+        ville
+      )
+    `)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Erreur get dossiers:", error);
+    return res.status(500).json({ error: error.message });
+  }
+
+  res.json(data);
+});
+
+app.get("/api/beneficiaires/:id/dossiers-instruction", authMiddleware, async (req, res) => {
+  const { data, error } = await supabase
+    .from("dossiers_instruction")
+    .select("*")
+    .eq("beneficiaire_id", req.params.id)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Erreur get dossiers beneficiaire:", error);
+    return res.status(500).json({ error: error.message });
+  }
+
+  res.json(data);
+});
+
+app.post("/api/dossiers-instruction", authMiddleware, async (req, res) => {
+  const d = req.body;
+
+  if (!d.beneficiaire_id) {
+    return res.status(400).json({ error: "beneficiaire_id obligatoire" });
+  }
+
+  const { data, error } = await supabase
+    .from("dossiers_instruction")
+    .insert([
+      {
+        beneficiaire_id: d.beneficiaire_id,
+        type: d.type || "",
+        statut: d.statut || "Ouvert",
+        date_ouverture: d.date_ouverture || new Date().toISOString().slice(0, 10),
+        echeance: d.echeance || "",
+        notes: d.notes || "",
+      },
+    ])
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Erreur add dossier:", error);
+    return res.status(500).json({ error: error.message });
+  }
+
+  res.json(data);
+});
+
+app.put("/api/dossiers-instruction/:id", authMiddleware, async (req, res) => {
+  const d = req.body;
+
+  const { data, error } = await supabase
+    .from("dossiers_instruction")
+    .update({
+      type: d.type || "",
+      statut: d.statut || "",
+      date_ouverture: d.date_ouverture || "",
+      echeance: d.echeance || "",
+      notes: d.notes || "",
+    })
+    .eq("id", req.params.id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Erreur update dossier:", error);
+    return res.status(500).json({ error: error.message });
+  }
+
+  res.json(data);
+});
+
+app.delete("/api/dossiers-instruction/:id", authMiddleware, async (req, res) => {
+  const { error } = await supabase
+    .from("dossiers_instruction")
+    .delete()
+    .eq("id", req.params.id);
+
+  if (error) {
+    console.error("Erreur delete dossier:", error);
     return res.status(500).json({ error: error.message });
   }
 
