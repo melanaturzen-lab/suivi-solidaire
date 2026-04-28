@@ -1,191 +1,871 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import jsPDF from "jspdf";
 import logo from "./assets/logo.png";
 
 const API = import.meta.env.VITE_API_URL;
 
+const emptyBeneficiaire = {
+  nom: "",
+  age: "",
+  profil: "",
+  ville: "",
+  priorite: "",
+  besoin: "",
+  telephone: "",
+  email: "",
+  adresse: "",
+  referent: "",
+  notes: "",
+};
+
+const emptyEntretien = {
+  beneficiaire_id: "",
+  date: "",
+  type: "",
+  compte_rendu: "",
+  suite_a_donner: "",
+};
+
+const emptyDossier = {
+  beneficiaire_id: "",
+  type: "",
+  statut: "Ouvert",
+  date_ouverture: "",
+  echeance: "",
+  notes: "",
+};
+
 export default function App() {
-  const [view, setView] = useState("dashboard");
+  const [token, setToken] = useState(localStorage.getItem("token"));
+  const [user, setUser] = useState(() => {
+    const saved = localStorage.getItem("user");
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  const [page, setPage] = useState("dashboard");
   const [beneficiaires, setBeneficiaires] = useState([]);
   const [selected, setSelected] = useState(null);
-  const [entretiens, setEntretiens] = useState([]);
   const [toast, setToast] = useState(null);
 
-  const token = localStorage.getItem("token");
-
-  // 🔔 Toast
-  const showToast = (msg) => {
-    setToast(msg);
+  function showToast(message, type = "success") {
+    setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
-  };
+  }
 
-  // 📥 Charger bénéficiaires
-  const loadBeneficiaires = async () => {
+  function headers() {
+    return {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    };
+  }
+
+  function logout() {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    setToken(null);
+    setUser(null);
+    setBeneficiaires([]);
+    setSelected(null);
+  }
+
+  async function loadBeneficiaires() {
+    if (!token) return;
+
     try {
       const res = await fetch(`${API}/beneficiaires`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: headers(),
       });
-      const data = await res.json();
-      setBeneficiaires(data);
-    } catch {
-      showToast("Erreur chargement bénéficiaires");
-    }
-  };
 
-  // 📥 Charger entretiens
-  const loadEntretiens = async (id) => {
-    try {
-      const res = await fetch(`${API}/entretiens/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      if (res.status === 401) {
+        logout();
+        return;
+      }
+
       const data = await res.json();
-      setEntretiens(data);
-    } catch {
-      showToast("Erreur chargement entretiens");
+      setBeneficiaires(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.error(e);
+      showToast("Erreur chargement bénéficiaires", "error");
     }
-  };
+  }
 
   useEffect(() => {
-    if (token) loadBeneficiaires();
-  }, []);
+    loadBeneficiaires();
+  }, [token]);
 
-  // 📄 PDF
-  const exportPDF = () => {
-    if (!selected) return;
-
-    const doc = new jsPDF();
-
-    doc.addImage(logo, "PNG", 10, 10, 40, 20);
-    doc.setFontSize(16);
-    doc.text("Fiche bénéficiaire", 10, 40);
-
-    doc.text(`Nom : ${selected.nom}`, 10, 60);
-    doc.text(`Ville : ${selected.ville}`, 10, 70);
-    doc.text(`Profil : ${selected.profil}`, 10, 80);
-
-    doc.save("fiche.pdf");
-  };
-
-  // ➕ Ajouter entretien
-  const addEntretien = async () => {
-    const res = await fetch(`${API}/entretiens`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        beneficiaire_id: selected.id,
-        contenu: "Nouvel entretien",
-      }),
-    });
-
-    if (res.ok) {
-      showToast("Entretien ajouté");
-      loadEntretiens(selected.id);
-    }
-  };
-
-  // 🚪 Logout
-  const logout = () => {
-    localStorage.removeItem("token");
-    location.reload();
-  };
-
-  // 🔐 Si pas de token
   if (!token) {
     return (
-      <div style={{ padding: 50 }}>
-        <h2>Veuillez vous connecter</h2>
-      </div>
+      <>
+        <AuthPage setToken={setToken} setUser={setUser} showToast={showToast} />
+        <Toast toast={toast} />
+        <Styles />
+      </>
     );
   }
 
   return (
-    <div style={{ display: "flex", height: "100vh", background: "#0b1220", color: "white" }}>
-      
-      {/* MENU */}
-      <div style={{ width: 250, background: "#020617", padding: 20 }}>
-        <img src={logo} style={{ width: 60 }} />
-        <h2>Suivi Solidaire</h2>
+    <div className="app">
+      <Toast toast={toast} />
 
-        <Menu label="Dashboard" onClick={() => setView("dashboard")} />
-        <Menu label="Bénéficiaires" onClick={() => setView("benef")} />
-        <Menu label="Accompagnement" onClick={() => setView("accompagnement")} />
-
-        <button onClick={logout} style={{ marginTop: 20 }}>
-          Déconnexion
-        </button>
-      </div>
-
-      {/* CONTENU */}
-      <div style={{ flex: 1, padding: 20 }}>
-
-        {view === "dashboard" && <h1>Dashboard</h1>}
-
-        {/* BENEF */}
-        {view === "benef" && (
-          <div>
-            <h2>Bénéficiaires</h2>
-
-            {beneficiaires.map((b) => (
-              <div key={b.id}
-                onClick={() => {
-                  setSelected(b);
-                  loadEntretiens(b.id);
-                }}
-                style={{ border: "1px solid #333", margin: 5, padding: 10, cursor: "pointer" }}
-              >
-                {b.nom} - {b.ville}
-              </div>
-            ))}
-
-            {selected && (
-              <div>
-                <h3>{selected.nom}</h3>
-                <button onClick={exportPDF}>PDF</button>
-              </div>
-            )}
+      <aside className="sidebar">
+        <div>
+          <div className="brand">
+            <img src={logo} alt="Logo" />
+            <div>
+              <h2>Suivi Solidaire</h2>
+              <span>Production</span>
+            </div>
           </div>
-        )}
 
-        {/* ACCOMPAGNEMENT */}
-        {view === "accompagnement" && selected && (
-          <div>
-            <h2>Entretiens - {selected.nom}</h2>
+          <p className="muted">Connecté : {user?.email}</p>
 
-            <button onClick={addEntretien}>Ajouter entretien</button>
-
-            {entretiens.map((e) => (
-              <div key={e.id} style={{ marginTop: 10 }}>
-                {e.contenu}
-              </div>
-            ))}
-          </div>
-        )}
-
-      </div>
-
-      {/* TOAST */}
-      {toast && (
-        <div style={{
-          position: "fixed",
-          bottom: 20,
-          right: 20,
-          background: "#065f46",
-          padding: 10
-        }}>
-          {toast}
+          <button onClick={() => setPage("dashboard")}>Tableau de bord</button>
+          <button onClick={() => setPage("beneficiaires")}>Bénéficiaires</button>
+          <button onClick={() => setPage("accompagnement")}>Accompagnement</button>
+          <button onClick={() => setPage("documents")}>Documents</button>
+          <button onClick={() => setPage("securite")}>Confidentialité</button>
         </div>
-      )}
+
+        <button className="danger" onClick={logout}>Déconnexion</button>
+      </aside>
+
+      <main className="main">
+        <header className="header">
+          <div>
+            <p>La Voix des Ancêtres</p>
+            <h1>Plateforme de suivi solidaire</h1>
+          </div>
+          <strong>Backend en ligne</strong>
+        </header>
+
+        {page === "dashboard" && <Dashboard beneficiaires={beneficiaires} />}
+
+        {page === "beneficiaires" && (
+          <Beneficiaires
+            beneficiaires={beneficiaires}
+            selected={selected}
+            setSelected={setSelected}
+            loadBeneficiaires={loadBeneficiaires}
+            headers={headers}
+            showToast={showToast}
+          />
+        )}
+
+        {page === "accompagnement" && (
+          <Accompagnement
+            beneficiaires={beneficiaires}
+            headers={headers}
+            showToast={showToast}
+          />
+        )}
+
+        {page === "documents" && (
+          <Panel title="Documents" text="Module documents à développer ensuite." />
+        )}
+
+        {page === "securite" && (
+          <Panel title="Confidentialité" text="Connexion sécurisée, API protégée par token et RLS Supabase activé." />
+        )}
+      </main>
+
+      <Styles />
     </div>
   );
 }
 
-function Menu({ label, onClick }) {
+function AuthPage({ setToken, setUser, showToast }) {
+  const [mode, setMode] = useState("login");
+  const [form, setForm] = useState({ nom: "", email: "", password: "" });
+
+  async function submit(e) {
+    e.preventDefault();
+
+    const endpoint = mode === "login" ? "login" : "register";
+
+    try {
+      const res = await fetch(`${API}/auth/${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        showToast(data.error || "Erreur", "error");
+        return;
+      }
+
+      if (mode === "register") {
+        showToast("Compte créé. Connecte-toi maintenant.");
+        setMode("login");
+        setForm({ nom: "", email: "", password: "" });
+        return;
+      }
+
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+
+      setToken(data.token);
+      setUser(data.user);
+      showToast("Connexion réussie.");
+    } catch (e) {
+      console.error(e);
+      showToast("Erreur serveur", "error");
+    }
+  }
+
   return (
-    <div onClick={onClick} style={{ padding: 10, cursor: "pointer" }}>
-      {label}
+    <div className="auth">
+      <form className="auth-card" onSubmit={submit}>
+        <img src={logo} alt="Logo" />
+        <h1>Suivi Solidaire</h1>
+        <h2>{mode === "login" ? "Connexion" : "Créer un compte"}</h2>
+
+        {mode === "register" && (
+          <input
+            placeholder="Nom"
+            value={form.nom}
+            onChange={(e) => setForm({ ...form, nom: e.target.value })}
+          />
+        )}
+
+        <input
+          placeholder="Email"
+          type="email"
+          value={form.email}
+          onChange={(e) => setForm({ ...form, email: e.target.value })}
+        />
+
+        <input
+          placeholder="Mot de passe"
+          type="password"
+          value={form.password}
+          onChange={(e) => setForm({ ...form, password: e.target.value })}
+        />
+
+        <button className="primary">
+          {mode === "login" ? "Se connecter" : "Créer le compte"}
+        </button>
+
+        <button
+          type="button"
+          className="secondary"
+          onClick={() => setMode(mode === "login" ? "register" : "login")}
+        >
+          {mode === "login" ? "Créer un compte" : "J’ai déjà un compte"}
+        </button>
+      </form>
     </div>
+  );
+}
+
+function Dashboard({ beneficiaires }) {
+  return (
+    <>
+      <h1>Tableau de bord</h1>
+      <div className="cards">
+        <div className="card">
+          <p>Bénéficiaires</p>
+          <h2>{beneficiaires.length}</h2>
+        </div>
+        <div className="card">
+          <p>Backend</p>
+          <h2>En ligne</h2>
+        </div>
+        <div className="card">
+          <p>Application</p>
+          <h2>Active</h2>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function Beneficiaires({ beneficiaires, selected, setSelected, loadBeneficiaires, headers, showToast }) {
+  const [form, setForm] = useState(emptyBeneficiaire);
+  const [showForm, setShowForm] = useState(false);
+
+  async function addBeneficiaire() {
+    if (!form.nom) {
+      showToast("Le nom est obligatoire", "error");
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API}/beneficiaires`, {
+        method: "POST",
+        headers: headers(),
+        body: JSON.stringify(form),
+      });
+
+      if (!res.ok) throw new Error();
+
+      setForm(emptyBeneficiaire);
+      setShowForm(false);
+      await loadBeneficiaires();
+      showToast("Bénéficiaire ajouté.");
+    } catch {
+      showToast("Erreur ajout bénéficiaire", "error");
+    }
+  }
+
+  async function deleteBeneficiaire(id) {
+    if (!confirm("Supprimer ce bénéficiaire ?")) return;
+
+    try {
+      const res = await fetch(`${API}/beneficiaires/${id}`, {
+        method: "DELETE",
+        headers: headers(),
+      });
+
+      if (!res.ok) throw new Error();
+
+      setSelected(null);
+      await loadBeneficiaires();
+      showToast("Bénéficiaire supprimé.");
+    } catch {
+      showToast("Erreur suppression", "error");
+    }
+  }
+
+  function exportPDF() {
+    if (!selected) return;
+
+    const doc = new jsPDF();
+    doc.setFontSize(18);
+    doc.text("Suivi Solidaire", 10, 20);
+    doc.setFontSize(14);
+    doc.text("Fiche bénéficiaire", 10, 35);
+
+    let y = 55;
+    Object.entries(selected).forEach(([key, value]) => {
+      if (["id", "created_at"].includes(key)) return;
+      doc.text(`${key} : ${value || "Non renseigné"}`, 10, y);
+      y += 8;
+    });
+
+    doc.save(`fiche-${selected.nom || "beneficiaire"}.pdf`);
+    showToast("PDF exporté.");
+  }
+
+  return (
+    <>
+      <div className="page-head">
+        <h1>Bénéficiaires</h1>
+        <button className="primary" onClick={() => setShowForm(!showForm)}>
+          + Ajouter
+        </button>
+      </div>
+
+      {showForm && (
+        <div className="panel">
+          <h2>Nouveau bénéficiaire</h2>
+          <div className="grid">
+            {Object.keys(emptyBeneficiaire).map((key) => (
+              <input
+                key={key}
+                placeholder={key}
+                value={form[key]}
+                onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+              />
+            ))}
+          </div>
+          <button className="primary" onClick={addBeneficiaire}>Enregistrer</button>
+        </div>
+      )}
+
+      <div className="layout">
+        <div className="list">
+          {beneficiaires.map((b) => (
+            <div
+              key={b.id}
+              className={`item ${selected?.id === b.id ? "active" : ""}`}
+              onClick={() => setSelected(b)}
+            >
+              <h3>{b.nom}</h3>
+              <p>{b.ville || "Ville non renseignée"}</p>
+              <p>{b.profil || "Profil non renseigné"}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="panel">
+          {!selected ? (
+            <p>Sélectionne un bénéficiaire.</p>
+          ) : (
+            <>
+              <h2>{selected.nom}</h2>
+              <p><strong>Âge :</strong> {selected.age}</p>
+              <p><strong>Ville :</strong> {selected.ville}</p>
+              <p><strong>Profil :</strong> {selected.profil}</p>
+              <p><strong>Besoins :</strong> {selected.besoin}</p>
+              <p><strong>Notes :</strong> {selected.notes}</p>
+
+              <button className="primary" onClick={exportPDF}>Exporter PDF</button>
+              <button className="danger" onClick={() => deleteBeneficiaire(selected.id)}>
+                Supprimer
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function Accompagnement({ beneficiaires, headers, showToast }) {
+  const [tab, setTab] = useState("entretiens");
+  const [entretiens, setEntretiens] = useState([]);
+  const [dossiers, setDossiers] = useState([]);
+  const [entretien, setEntretien] = useState(emptyEntretien);
+  const [dossier, setDossier] = useState(emptyDossier);
+
+  async function loadEntretiens() {
+    try {
+      const res = await fetch(`${API}/entretiens`, { headers: headers() });
+      const data = await res.json();
+      setEntretiens(Array.isArray(data) ? data : []);
+    } catch {
+      showToast("Erreur chargement entretiens", "error");
+    }
+  }
+
+  async function loadDossiers() {
+    try {
+      const res = await fetch(`${API}/dossiers-instruction`, { headers: headers() });
+      const data = await res.json();
+      setDossiers(Array.isArray(data) ? data : []);
+    } catch {
+      showToast("Erreur chargement dossiers", "error");
+    }
+  }
+
+  useEffect(() => {
+    loadEntretiens();
+    loadDossiers();
+  }, []);
+
+  async function addEntretien() {
+    if (!entretien.beneficiaire_id || !entretien.type) {
+      showToast("Bénéficiaire et type obligatoires", "error");
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API}/entretiens`, {
+        method: "POST",
+        headers: headers(),
+        body: JSON.stringify(entretien),
+      });
+
+      if (!res.ok) throw new Error();
+
+      setEntretien(emptyEntretien);
+      await loadEntretiens();
+      showToast("Entretien ajouté.");
+    } catch {
+      showToast("Erreur ajout entretien", "error");
+    }
+  }
+
+  async function addDossier() {
+    if (!dossier.beneficiaire_id || !dossier.type) {
+      showToast("Bénéficiaire et type obligatoires", "error");
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API}/dossiers-instruction`, {
+        method: "POST",
+        headers: headers(),
+        body: JSON.stringify(dossier),
+      });
+
+      if (!res.ok) throw new Error();
+
+      setDossier(emptyDossier);
+      await loadDossiers();
+      showToast("Dossier ajouté.");
+    } catch {
+      showToast("Erreur ajout dossier", "error");
+    }
+  }
+
+  return (
+    <>
+      <h1>Accompagnement</h1>
+
+      <div className="tabs">
+        <button className={tab === "entretiens" ? "active-tab" : ""} onClick={() => setTab("entretiens")}>
+          Entretiens
+        </button>
+        <button className={tab === "dossiers" ? "active-tab" : ""} onClick={() => setTab("dossiers")}>
+          Dossiers d’instruction
+        </button>
+      </div>
+
+      {tab === "entretiens" && (
+        <div className="layout">
+          <div className="panel">
+            <h2>Nouvel entretien</h2>
+
+            <select
+              value={entretien.beneficiaire_id}
+              onChange={(e) => setEntretien({ ...entretien, beneficiaire_id: e.target.value })}
+            >
+              <option value="">Choisir un bénéficiaire</option>
+              {beneficiaires.map((b) => (
+                <option key={b.id} value={b.id}>{b.nom}</option>
+              ))}
+            </select>
+
+            <input
+              type="date"
+              value={entretien.date}
+              onChange={(e) => setEntretien({ ...entretien, date: e.target.value })}
+            />
+
+            <input
+              placeholder="Type d’entretien"
+              value={entretien.type}
+              onChange={(e) => setEntretien({ ...entretien, type: e.target.value })}
+            />
+
+            <textarea
+              placeholder="Compte-rendu"
+              value={entretien.compte_rendu}
+              onChange={(e) => setEntretien({ ...entretien, compte_rendu: e.target.value })}
+            />
+
+            <textarea
+              placeholder="Suite à donner"
+              value={entretien.suite_a_donner}
+              onChange={(e) => setEntretien({ ...entretien, suite_a_donner: e.target.value })}
+            />
+
+            <button className="primary" onClick={addEntretien}>Ajouter</button>
+          </div>
+
+          <div className="panel">
+            <h2>Entretiens</h2>
+            {entretiens.map((e) => (
+              <div className="history" key={e.id}>
+                <strong>{e.date} — {e.type}</strong>
+                <p>{e.beneficiaires?.nom}</p>
+                <p>{e.compte_rendu}</p>
+                <p><strong>Suite :</strong> {e.suite_a_donner}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {tab === "dossiers" && (
+        <div className="layout">
+          <div className="panel">
+            <h2>Nouveau dossier</h2>
+
+            <select
+              value={dossier.beneficiaire_id}
+              onChange={(e) => setDossier({ ...dossier, beneficiaire_id: e.target.value })}
+            >
+              <option value="">Choisir un bénéficiaire</option>
+              {beneficiaires.map((b) => (
+                <option key={b.id} value={b.id}>{b.nom}</option>
+              ))}
+            </select>
+
+            <input
+              placeholder="Type de dossier"
+              value={dossier.type}
+              onChange={(e) => setDossier({ ...dossier, type: e.target.value })}
+            />
+
+            <select
+              value={dossier.statut}
+              onChange={(e) => setDossier({ ...dossier, statut: e.target.value })}
+            >
+              <option>Ouvert</option>
+              <option>En cours</option>
+              <option>En attente</option>
+              <option>Urgent</option>
+              <option>Clos</option>
+            </select>
+
+            <input
+              type="date"
+              value={dossier.date_ouverture}
+              onChange={(e) => setDossier({ ...dossier, date_ouverture: e.target.value })}
+            />
+
+            <input
+              type="date"
+              value={dossier.echeance}
+              onChange={(e) => setDossier({ ...dossier, echeance: e.target.value })}
+            />
+
+            <textarea
+              placeholder="Notes"
+              value={dossier.notes}
+              onChange={(e) => setDossier({ ...dossier, notes: e.target.value })}
+            />
+
+            <button className="primary" onClick={addDossier}>Ajouter</button>
+          </div>
+
+          <div className="panel">
+            <h2>Dossiers</h2>
+            {dossiers.map((d) => (
+              <div className="history" key={d.id}>
+                <strong>{d.type}</strong>
+                <p>{d.beneficiaires?.nom}</p>
+                <p>Statut : {d.statut}</p>
+                <p>Échéance : {d.echeance}</p>
+                <p>{d.notes}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function Panel({ title, text }) {
+  return (
+    <div className="panel">
+      <h1>{title}</h1>
+      <p>{text}</p>
+    </div>
+  );
+}
+
+function Toast({ toast }) {
+  if (!toast) return null;
+  return <div className={`toast ${toast.type}`}>{toast.message}</div>;
+}
+
+function Styles() {
+  return (
+    <style>{`
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: Arial, sans-serif; background: #07111f; }
+
+      .app {
+        display: flex;
+        min-height: 100vh;
+        background: radial-gradient(circle at top left, #1d4ed855, transparent 30%), #07111f;
+        color: #e5e7eb;
+      }
+
+      .sidebar {
+        width: 290px;
+        padding: 24px;
+        background: #020617dd;
+        border-right: 1px solid #334155;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+
+      .brand {
+        display: flex;
+        gap: 14px;
+        align-items: center;
+        margin-bottom: 20px;
+      }
+
+      .brand img {
+        width: 64px;
+        height: 64px;
+        object-fit: contain;
+        background: white;
+        border-radius: 18px;
+        padding: 6px;
+      }
+
+      .brand h2 { margin: 0; }
+      .brand span {
+        color: #86efac;
+        font-size: 12px;
+      }
+
+      .sidebar button {
+        width: 100%;
+        margin-top: 10px;
+        padding: 13px;
+        border-radius: 14px;
+        border: 1px solid #334155;
+        background: #0f172a;
+        color: white;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .sidebar button:hover {
+        background: linear-gradient(135deg, #2563eb, #38bdf8);
+      }
+
+      .main {
+        flex: 1;
+        padding: 28px;
+      }
+
+      .header {
+        background: linear-gradient(135deg, #0f4c81, #2563eb);
+        border-radius: 26px;
+        padding: 26px;
+        margin-bottom: 28px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .header p {
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #bfdbfe;
+      }
+
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 18px;
+      }
+
+      .card, .panel, .item, .history {
+        background: rgba(15, 23, 42, 0.85);
+        border: 1px solid #334155;
+        border-radius: 22px;
+        padding: 20px;
+        margin-bottom: 16px;
+      }
+
+      .card h2 {
+        color: #60a5fa;
+        font-size: 34px;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 22px;
+      }
+
+      .item {
+        cursor: pointer;
+      }
+
+      .item.active {
+        border-color: #38bdf8;
+        background: rgba(37, 99, 235, 0.2);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+
+      input, textarea, select {
+        width: 100%;
+        margin-bottom: 10px;
+        padding: 12px;
+        border-radius: 12px;
+        border: 1px solid #334155;
+        background: #020617;
+        color: white;
+      }
+
+      textarea {
+        min-height: 90px;
+      }
+
+      button {
+        padding: 12px 15px;
+        border: none;
+        border-radius: 12px;
+        cursor: pointer;
+        margin-right: 8px;
+      }
+
+      .primary {
+        background: linear-gradient(135deg, #2563eb, #38bdf8);
+        color: white;
+      }
+
+      .secondary {
+        background: #334155;
+        color: white;
+      }
+
+      .danger {
+        background: #7f1d1d !important;
+        color: white !important;
+      }
+
+      .tabs {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+
+      .tabs button {
+        background: #0f172a;
+        color: white;
+        border: 1px solid #334155;
+      }
+
+      .active-tab {
+        background: linear-gradient(135deg, #2563eb, #38bdf8) !important;
+      }
+
+      .toast {
+        position: fixed;
+        right: 20px;
+        bottom: 20px;
+        padding: 14px 18px;
+        border-radius: 14px;
+        color: white;
+        background: #16a34a;
+      }
+
+      .toast.error {
+        background: #dc2626;
+      }
+
+      .auth {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #07111f;
+        color: white;
+      }
+
+      .auth-card {
+        width: 390px;
+        padding: 30px;
+        border-radius: 24px;
+        background: #0f172a;
+        border: 1px solid #334155;
+      }
+
+      .auth-card img {
+        width: 80px;
+        background: white;
+        border-radius: 18px;
+        padding: 6px;
+      }
+
+      .muted { color: #94a3b8; }
+
+      @media (max-width: 900px) {
+        .app { flex-direction: column; }
+        .sidebar { width: 100%; }
+        .layout, .cards, .grid { grid-template-columns: 1fr; }
+      }
+    `}</style>
   );
 }
