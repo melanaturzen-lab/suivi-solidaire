@@ -31,10 +31,15 @@ export default function App() {
     return saved ? JSON.parse(saved) : null;
   });
 
+  const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "dark");
   const [page, setPage] = useState("dashboard");
   const [beneficiaires, setBeneficiaires] = useState([]);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
+
+  useEffect(() => {
+    localStorage.setItem("theme", theme);
+  }, [theme]);
 
   function showToast(message, type = "success") {
     setToast({ message, type });
@@ -61,6 +66,7 @@ export default function App() {
 
     try {
       setLoading(true);
+
       const response = await fetch(`${API_URL}/beneficiaires`, {
         headers: authHeaders(),
       });
@@ -87,16 +93,16 @@ export default function App() {
 
   if (!token) {
     return (
-      <>
+      <div className={`theme-${theme}`}>
         <AuthPage setToken={setToken} setUser={setUser} showToast={showToast} />
         <Toast toast={toast} />
         <GlobalStyles />
-      </>
+      </div>
     );
   }
 
   return (
-    <div className="app">
+    <div className={`app theme-${theme}`}>
       <Toast toast={toast} />
 
       <aside className="sidebar">
@@ -136,9 +142,9 @@ export default function App() {
       </aside>
 
       <main className="main">
-        <HeaderPro user={user} />
+        <HeaderPro user={user} theme={theme} setTheme={setTheme} />
 
-        {loading && <p>Chargement...</p>}
+        {loading && <p className="muted">Chargement...</p>}
 
         {!loading && page === "dashboard" && <Dashboard beneficiaires={beneficiaires} />}
         {!loading && page === "beneficiaires" && (
@@ -159,9 +165,9 @@ export default function App() {
   );
 }
 
-function HeaderPro({ user }) {
+function HeaderPro({ user, theme, setTheme }) {
   return (
-    <header className="top-header">
+    <header className="top-header fade-in">
       <div>
         <p className="eyebrow">La Voix des Ancêtres</p>
         <h1>Plateforme de suivi solidaire</h1>
@@ -171,6 +177,9 @@ function HeaderPro({ user }) {
         <span className="status-dot"></span>
         <span>Backend en ligne</span>
         <span className="header-user">{user?.role || "bénévole"}</span>
+        <button className="theme-toggle" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
+          {theme === "dark" ? "☀️ Clair" : "🌙 Sombre"}
+        </button>
       </div>
     </header>
   );
@@ -219,7 +228,7 @@ function AuthPage({ setToken, setUser, showToast }) {
 
   return (
     <div className="auth-page">
-      <form className="auth-card" onSubmit={submit}>
+      <form className="auth-card fade-in" onSubmit={submit}>
         <img src={logo} alt="Logo" className="auth-logo" />
         <h1>Suivi Solidaire</h1>
         <h2>{mode === "login" ? "Connexion" : "Créer un compte"}</h2>
@@ -228,29 +237,14 @@ function AuthPage({ setToken, setUser, showToast }) {
           <input placeholder="Nom" value={form.nom} onChange={(e) => setForm({ ...form, nom: e.target.value })} />
         )}
 
-        <input
-          placeholder="Email"
-          type="email"
-          value={form.email}
-          onChange={(e) => setForm({ ...form, email: e.target.value })}
-        />
-
-        <input
-          placeholder="Mot de passe"
-          type="password"
-          value={form.password}
-          onChange={(e) => setForm({ ...form, password: e.target.value })}
-        />
+        <input placeholder="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+        <input placeholder="Mot de passe" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
 
         <button type="submit" className="primary">
           {mode === "login" ? "Se connecter" : "Créer le compte"}
         </button>
 
-        <button
-          type="button"
-          className="secondary"
-          onClick={() => setMode(mode === "login" ? "register" : "login")}
-        >
+        <button type="button" className="secondary" onClick={() => setMode(mode === "login" ? "register" : "login")}>
           {mode === "login" ? "Créer un compte" : "J’ai déjà un compte"}
         </button>
       </form>
@@ -262,20 +256,20 @@ function Dashboard({ beneficiaires }) {
   const urgents = beneficiaires.filter((b) => b.priorite === "Élevée").length;
 
   return (
-    <>
+    <section className="fade-in">
       <h1>Tableau de bord</h1>
       <div className="cards">
         <Card title="Bénéficiaires" value={beneficiaires.length} />
         <Card title="Situations urgentes" value={urgents} />
         <Card title="Statut" value="En ligne" />
       </div>
-    </>
+    </section>
   );
 }
 
 function Card({ title, value }) {
   return (
-    <div className="card">
+    <div className="card hover-card">
       <p>{title}</p>
       <h2>{value}</h2>
     </div>
@@ -292,9 +286,7 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders, showT
   const [actionForm, setActionForm] = useState(emptyAction);
 
   const filtered = beneficiaires.filter((b) =>
-    `${b.nom || ""} ${b.ville || ""} ${b.profil || ""} ${b.besoin || ""}`
-      .toLowerCase()
-      .includes(search.toLowerCase())
+    `${b.nom || ""} ${b.ville || ""} ${b.profil || ""} ${b.besoin || ""}`.toLowerCase().includes(search.toLowerCase())
   );
 
   useEffect(() => {
@@ -557,7 +549,7 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders, showT
   }
 
   return (
-    <>
+    <section className="fade-in">
       <div className="page-header">
         <h1>Bénéficiaires</h1>
         <button className="primary small" onClick={ouvrirAjout}>
@@ -575,7 +567,7 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders, showT
           />
 
           {showForm && (
-            <div className="panel form-panel">
+            <div className="panel form-panel scale-in">
               <h3>{editId === null ? "Nouveau bénéficiaire" : "Modifier le bénéficiaire"}</h3>
 
               <div className="grid-form">
@@ -605,11 +597,7 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders, showT
               <p className="muted">Aucun bénéficiaire trouvé.</p>
             ) : (
               filtered.map((b) => (
-                <div
-                  key={b.id}
-                  onClick={() => setSelected(b)}
-                  className={`list-card ${selected?.id === b.id ? "selected" : ""}`}
-                >
+                <div key={b.id} onClick={() => setSelected(b)} className={`list-card hover-card ${selected?.id === b.id ? "selected" : ""}`}>
                   <h3>{b.nom} — {b.age} ans</h3>
                   <p><strong>Profil :</strong> {b.profil}</p>
                   <p><strong>Ville :</strong> {b.ville}</p>
@@ -631,7 +619,7 @@ function Beneficiaires({ beneficiaires, chargerBeneficiaires, authHeaders, showT
           exporterPDF={exporterPDF}
         />
       </div>
-    </>
+    </section>
   );
 }
 
@@ -646,11 +634,11 @@ function FicheDetaillee({
   exporterPDF,
 }) {
   if (!beneficiaire) {
-    return <div className="panel">Aucun bénéficiaire sélectionné.</div>;
+    return <div className="panel detail">Aucun bénéficiaire sélectionné.</div>;
   }
 
   return (
-    <aside className="panel detail">
+    <aside className="panel detail scale-in">
       <h2>Fiche détaillée</h2>
       <h3>{beneficiaire.nom}</h3>
 
@@ -720,15 +708,15 @@ function FicheDetaillee({
 }
 
 function Actions() {
-  return <><h1>Actions</h1><div className="panel">Les actions sont consultables dans chaque fiche bénéficiaire.</div></>;
+  return <section className="fade-in"><h1>Actions</h1><div className="panel">Les actions sont consultables dans chaque fiche bénéficiaire.</div></section>;
 }
 
 function Documents() {
-  return <><h1>Documents</h1><div className="panel">Module documents à développer ensuite.</div></>;
+  return <section className="fade-in"><h1>Documents</h1><div className="panel">Module documents à développer ensuite.</div></section>;
 }
 
 function Securite() {
-  return <><h1>Confidentialité</h1><div className="panel">Connexion sécurisée, mots de passe chiffrés et API protégée par token.</div></>;
+  return <section className="fade-in"><h1>Confidentialité</h1><div className="panel">Connexion sécurisée, mots de passe chiffrés et API protégée par token.</div></section>;
 }
 
 function Toast({ toast }) {
@@ -740,15 +728,90 @@ function GlobalStyles() {
   return (
     <style>{`
       * { box-sizing: border-box; }
-      body { margin: 0; font-family: Arial, sans-serif; background: #f4f7fb; color: #111827; }
 
-      .app { display: flex; min-height: 100vh; }
+      :root {
+        --blue: #2563eb;
+        --blue-dark: #0f4c81;
+        --green: #22c55e;
+        --red: #ef4444;
+      }
+
+      body {
+        margin: 0;
+        font-family: Inter, Arial, sans-serif;
+      }
+
+      .theme-dark {
+        --bg: #07111f;
+        --surface: rgba(15, 23, 42, 0.82);
+        --surface-2: rgba(30, 41, 59, 0.8);
+        --text: #e5e7eb;
+        --muted: #94a3b8;
+        --border: rgba(148, 163, 184, 0.22);
+        --input: rgba(15, 23, 42, 0.9);
+      }
+
+      .theme-light {
+        --bg: #f4f7fb;
+        --surface: #ffffff;
+        --surface-2: #f8fafc;
+        --text: #0f172a;
+        --muted: #64748b;
+        --border: #e5e7eb;
+        --input: #ffffff;
+      }
+
+      .app {
+        display: flex;
+        min-height: 100vh;
+        background:
+          radial-gradient(circle at top left, rgba(37,99,235,0.28), transparent 30%),
+          radial-gradient(circle at bottom right, rgba(34,197,94,0.18), transparent 28%),
+          var(--bg);
+        color: var(--text);
+      }
+
+      .auth-page {
+        min-height: 100vh;
+        background:
+          radial-gradient(circle at top left, rgba(37,99,235,0.4), transparent 32%),
+          linear-gradient(135deg, #07111f, #0f4c81);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text);
+      }
+
+      .auth-card {
+        width: 410px;
+        padding: 34px;
+        border-radius: 28px;
+        background: rgba(15, 23, 42, 0.86);
+        backdrop-filter: blur(18px);
+        border: 1px solid rgba(255,255,255,0.12);
+        box-shadow: 0 30px 90px rgba(0,0,0,0.35);
+      }
+
+      .auth-logo {
+        width: 90px;
+        height: 90px;
+        object-fit: contain;
+        background: white;
+        padding: 8px;
+        border-radius: 22px;
+      }
+
+      .auth-card input,
+      .auth-card button {
+        margin-top: 12px;
+      }
 
       .sidebar {
-        width: 300px;
-        background: linear-gradient(180deg, #0f4c81, #16324f);
-        color: white;
+        width: 310px;
         padding: 24px;
+        background: rgba(2, 6, 23, 0.72);
+        backdrop-filter: blur(20px);
+        border-right: 1px solid var(--border);
         display: flex;
         flex-direction: column;
         justify-content: space-between;
@@ -767,7 +830,8 @@ function GlobalStyles() {
         object-fit: contain;
         background: white;
         padding: 6px;
-        border-radius: 16px;
+        border-radius: 18px;
+        box-shadow: 0 12px 30px rgba(37,99,235,0.25);
       }
 
       .brand h2 {
@@ -778,29 +842,31 @@ function GlobalStyles() {
       .badge {
         display: inline-block;
         margin-top: 6px;
-        background: #22c55e;
-        color: white;
+        background: rgba(34,197,94,0.18);
+        color: #86efac;
+        border: 1px solid rgba(34,197,94,0.35);
         font-size: 12px;
-        padding: 4px 8px;
+        padding: 4px 9px;
         border-radius: 999px;
       }
 
-      .user-line { color: #dbeafe; }
+      nav { margin-top: 28px; }
 
       .sidebar button {
         display: block;
         width: 100%;
         margin-bottom: 10px;
         text-align: left;
-        background: rgba(255,255,255,0.12);
-        color: white;
-        border: 1px solid rgba(255,255,255,0.15);
+        color: var(--text);
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.08);
       }
 
       .sidebar button:hover,
       .sidebar button.active {
-        background: white;
-        color: #0f4c81;
+        background: linear-gradient(135deg, var(--blue), #38bdf8);
+        color: white;
+        transform: translateX(4px);
       }
 
       .main {
@@ -810,28 +876,28 @@ function GlobalStyles() {
       }
 
       .top-header {
-        background: linear-gradient(135deg, #0f4c81, #2563eb);
+        background: linear-gradient(135deg, rgba(15,76,129,0.98), rgba(37,99,235,0.94));
         color: white;
-        border-radius: 24px;
-        padding: 26px 30px;
-        margin-bottom: 28px;
+        border-radius: 28px;
+        padding: 28px 32px;
+        margin-bottom: 30px;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        box-shadow: 0 18px 40px rgba(37, 99, 235, 0.22);
+        box-shadow: 0 24px 60px rgba(37, 99, 235, 0.28);
       }
 
       .top-header h1 {
         margin: 4px 0 0;
-        font-size: 30px;
+        font-size: 31px;
       }
 
       .eyebrow {
         margin: 0;
         color: #bfdbfe;
-        font-size: 14px;
+        font-size: 13px;
         text-transform: uppercase;
-        letter-spacing: 1px;
+        letter-spacing: 1.4px;
       }
 
       .header-right {
@@ -839,8 +905,9 @@ function GlobalStyles() {
         gap: 10px;
         align-items: center;
         background: rgba(255,255,255,0.14);
-        padding: 10px 14px;
+        padding: 10px 12px;
         border-radius: 999px;
+        flex-wrap: wrap;
       }
 
       .status-dot {
@@ -848,12 +915,14 @@ function GlobalStyles() {
         height: 10px;
         background: #22c55e;
         border-radius: 50%;
+        box-shadow: 0 0 0 6px rgba(34,197,94,0.18);
       }
 
-      .header-user {
+      .header-user,
+      .theme-toggle {
         background: white;
         color: #0f4c81;
-        padding: 5px 10px;
+        padding: 7px 10px;
         border-radius: 999px;
         font-weight: bold;
       }
@@ -861,51 +930,61 @@ function GlobalStyles() {
       button {
         border: none;
         cursor: pointer;
-        border-radius: 12px;
-        padding: 12px 14px;
+        border-radius: 14px;
+        padding: 12px 15px;
         font-size: 15px;
+        transition: all 0.22s ease;
       }
 
-      .primary { background: #2563eb; color: white; }
-      .secondary { background: #eef2f7; color: #111827; }
-      .danger { background: #fee2e2 !important; color: #991b1b !important; }
+      button:hover {
+        transform: translateY(-1px);
+      }
+
+      .primary {
+        background: linear-gradient(135deg, #2563eb, #38bdf8);
+        color: white;
+        box-shadow: 0 12px 28px rgba(37,99,235,0.25);
+      }
+
+      .secondary {
+        background: var(--surface-2);
+        color: var(--text);
+        border: 1px solid var(--border);
+      }
+
+      .danger {
+        background: rgba(239, 68, 68, 0.16) !important;
+        color: #fecaca !important;
+        border: 1px solid rgba(239,68,68,0.35) !important;
+      }
 
       input, textarea, select {
         width: 100%;
         padding: 12px;
-        border: 1px solid #d1d5db;
-        border-radius: 12px;
+        border: 1px solid var(--border);
+        border-radius: 14px;
         font-size: 15px;
-        background: white;
+        background: var(--input);
+        color: var(--text);
+        outline: none;
       }
 
-      textarea { min-height: 90px; resize: vertical; }
-
-      .auth-page {
-        min-height: 100vh;
-        background: linear-gradient(135deg, #0f4c81, #2563eb);
-        display: flex;
-        align-items: center;
-        justify-content: center;
+      input:focus, textarea:focus, select:focus {
+        border-color: #38bdf8;
+        box-shadow: 0 0 0 4px rgba(56,189,248,0.12);
       }
 
-      .auth-card {
-        background: white;
-        width: 390px;
-        padding: 32px;
-        border-radius: 24px;
-        box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+      textarea {
+        min-height: 90px;
+        resize: vertical;
       }
 
-      .auth-logo {
-        width: 90px;
-        height: 90px;
-        object-fit: contain;
+      h1, h2, h3, p {
+        color: var(--text);
       }
 
-      .auth-card input,
-      .auth-card button {
-        margin-top: 10px;
+      .muted {
+        color: var(--muted);
       }
 
       .cards {
@@ -915,14 +994,27 @@ function GlobalStyles() {
       }
 
       .card, .panel, .list-card, .history-card {
-        background: white;
-        border-radius: 20px;
-        box-shadow: 0 8px 25px rgba(15, 23, 42, 0.07);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        box-shadow: 0 18px 50px rgba(0,0,0,0.18);
+        backdrop-filter: blur(14px);
       }
 
-      .card { padding: 26px; }
-      .card p { color: #64748b; margin: 0 0 10px; }
-      .card h2 { font-size: 34px; margin: 0; color: #0f4c81; }
+      .card {
+        padding: 28px;
+      }
+
+      .card p {
+        color: var(--muted);
+        margin: 0 0 10px;
+      }
+
+      .card h2 {
+        font-size: 34px;
+        margin: 0;
+        color: #60a5fa;
+      }
 
       .page-header {
         display: flex;
@@ -937,9 +1029,17 @@ function GlobalStyles() {
         align-items: start;
       }
 
-      .search { margin-bottom: 18px; }
-      .panel { padding: 24px; }
-      .form-panel { margin-bottom: 22px; }
+      .search {
+        margin-bottom: 18px;
+      }
+
+      .panel {
+        padding: 24px;
+      }
+
+      .form-panel {
+        margin-bottom: 22px;
+      }
 
       .grid-form {
         display: grid;
@@ -954,7 +1054,9 @@ function GlobalStyles() {
         margin-top: 12px;
       }
 
-      .actions-row button { flex: 1; }
+      .actions-row button {
+        flex: 1;
+      }
 
       .list {
         display: grid;
@@ -963,13 +1065,17 @@ function GlobalStyles() {
 
       .list-card {
         padding: 18px;
-        border: 2px solid transparent;
         cursor: pointer;
       }
 
       .list-card.selected {
-        border-color: #2563eb;
-        background: #eff6ff;
+        border-color: #38bdf8;
+        background: rgba(37,99,235,0.16);
+      }
+
+      .hover-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 24px 70px rgba(37,99,235,0.22);
       }
 
       .detail {
@@ -985,19 +1091,18 @@ function GlobalStyles() {
       }
 
       .note {
-        background: #fff7df;
+        background: rgba(250, 204, 21, 0.12);
+        border: 1px solid rgba(250, 204, 21, 0.25);
         padding: 14px;
-        border-radius: 12px;
+        border-radius: 14px;
         margin: 14px 0;
       }
 
       .history-card {
-        background: #f8fafc;
+        background: rgba(15,23,42,0.25);
         padding: 14px;
         margin-bottom: 10px;
       }
-
-      .muted { color: #64748b; }
 
       .toast {
         position: fixed;
@@ -1005,9 +1110,10 @@ function GlobalStyles() {
         right: 20px;
         z-index: 9999;
         padding: 14px 18px;
-        border-radius: 12px;
+        border-radius: 16px;
         color: white;
-        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.2);
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.25);
+        animation: slideDown 0.25s ease;
       }
 
       .toast.success { background: #16a34a; }
@@ -1015,8 +1121,31 @@ function GlobalStyles() {
 
       hr {
         border: none;
-        border-top: 1px solid #e5e7eb;
+        border-top: 1px solid var(--border);
         margin: 18px 0;
+      }
+
+      .fade-in {
+        animation: fadeIn 0.35s ease both;
+      }
+
+      .scale-in {
+        animation: scaleIn 0.25s ease both;
+      }
+
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      @keyframes scaleIn {
+        from { opacity: 0; transform: scale(0.98); }
+        to { opacity: 1; transform: scale(1); }
+      }
+
+      @keyframes slideDown {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
       }
 
       @media (max-width: 950px) {
