@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
+const multer = require("multer");
 const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
@@ -16,12 +17,15 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+});
+
 function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization;
 
-  if (!authHeader) {
-    return res.status(401).json({ error: "Token manquant" });
-  }
+  if (!authHeader) return res.status(401).json({ error: "Token manquant" });
 
   const token = authHeader.split(" ")[1];
 
@@ -51,20 +55,11 @@ app.post("/api/auth/register", async (req, res) => {
 
     const { data, error } = await supabase
       .from("users")
-      .insert([
-        {
-          nom: nom || "",
-          email,
-          password: passwordHash,
-          role: "benevole",
-        },
-      ])
+      .insert([{ nom: nom || "", email, password: passwordHash, role: "benevole" }])
       .select()
       .single();
 
-    if (error) {
-      return res.status(400).json({ error: error.message });
-    }
+    if (error) return res.status(400).json({ error: error.message });
 
     res.json({ success: true, id: data.id });
   } catch (error) {
@@ -82,22 +77,13 @@ app.post("/api/auth/login", async (req, res) => {
     .eq("email", email)
     .single();
 
-  if (error || !user) {
-    return res.status(401).json({ error: "Identifiants incorrects" });
-  }
+  if (error || !user) return res.status(401).json({ error: "Identifiants incorrects" });
 
   const valid = await bcrypt.compare(password, user.password);
-
-  if (!valid) {
-    return res.status(401).json({ error: "Identifiants incorrects" });
-  }
+  if (!valid) return res.status(401).json({ error: "Identifiants incorrects" });
 
   const token = jwt.sign(
-    {
-      id: user.id,
-      email: user.email,
-      role: user.role || "benevole",
-    },
+    { id: user.id, email: user.email, role: user.role || "benevole" },
     JWT_SECRET,
     { expiresIn: "8h" }
   );
@@ -121,11 +107,7 @@ app.get("/api/beneficiaires", authMiddleware, async (req, res) => {
     .select("*")
     .order("created_at", { ascending: false });
 
-  if (error) {
-    console.error("Erreur get beneficiaires:", error);
-    return res.status(500).json({ error: error.message });
-  }
-
+  if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 });
 
@@ -134,29 +116,23 @@ app.post("/api/beneficiaires", authMiddleware, async (req, res) => {
 
   const { data, error } = await supabase
     .from("beneficiaires")
-    .insert([
-      {
-        nom: b.nom || "",
-        age: b.age || "",
-        profil: b.profil || "",
-        ville: b.ville || "",
-        priorite: b.priorite || "",
-        besoin: b.besoin || "",
-        telephone: b.telephone || "",
-        email: b.email || "",
-        adresse: b.adresse || "",
-        referent: b.referent || "",
-        notes: b.notes || "",
-      },
-    ])
+    .insert([{
+      nom: b.nom || "",
+      age: b.age || "",
+      profil: b.profil || "",
+      ville: b.ville || "",
+      priorite: b.priorite || "",
+      besoin: b.besoin || "",
+      telephone: b.telephone || "",
+      email: b.email || "",
+      adresse: b.adresse || "",
+      referent: b.referent || "",
+      notes: b.notes || "",
+    }])
     .select()
     .single();
 
-  if (error) {
-    console.error("Erreur add beneficiaire:", error);
-    return res.status(500).json({ error: error.message });
-  }
-
+  if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 });
 
@@ -182,11 +158,7 @@ app.put("/api/beneficiaires/:id", authMiddleware, async (req, res) => {
     .select()
     .single();
 
-  if (error) {
-    console.error("Erreur update beneficiaire:", error);
-    return res.status(500).json({ error: error.message });
-  }
-
+  if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 });
 
@@ -196,17 +168,11 @@ app.delete("/api/beneficiaires/:id", authMiddleware, async (req, res) => {
   await supabase.from("actions").delete().eq("beneficiaire_id", id);
   await supabase.from("entretiens").delete().eq("beneficiaire_id", id);
   await supabase.from("dossiers_instruction").delete().eq("beneficiaire_id", id);
+  await supabase.from("documents").delete().eq("beneficiaire_id", id);
 
-  const { error } = await supabase
-    .from("beneficiaires")
-    .delete()
-    .eq("id", id);
+  const { error } = await supabase.from("beneficiaires").delete().eq("id", id);
 
-  if (error) {
-    console.error("Erreur delete beneficiaire:", error);
-    return res.status(500).json({ error: error.message });
-  }
-
+  if (error) return res.status(500).json({ error: error.message });
   res.json({ success: true });
 });
 
@@ -219,11 +185,7 @@ app.get("/api/beneficiaires/:id/actions", authMiddleware, async (req, res) => {
     .eq("beneficiaire_id", req.params.id)
     .order("created_at", { ascending: false });
 
-  if (error) {
-    console.error("Erreur get actions:", error);
-    return res.status(500).json({ error: error.message });
-  }
-
+  if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 });
 
@@ -232,74 +194,28 @@ app.post("/api/beneficiaires/:id/actions", authMiddleware, async (req, res) => {
 
   const { data, error } = await supabase
     .from("actions")
-    .insert([
-      {
-        beneficiaire_id: req.params.id,
-        date: a.date || new Date().toISOString().slice(0, 10),
-        type: a.type || "",
-        description: a.description || "",
-      },
-    ])
+    .insert([{
+      beneficiaire_id: req.params.id,
+      date: a.date || new Date().toISOString().slice(0, 10),
+      type: a.type || "",
+      description: a.description || "",
+    }])
     .select()
     .single();
 
-  if (error) {
-    console.error("Erreur add action:", error);
-    return res.status(500).json({ error: error.message });
-  }
-
+  if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 });
 
-app.delete("/api/actions/:id", authMiddleware, async (req, res) => {
-  const { error } = await supabase
-    .from("actions")
-    .delete()
-    .eq("id", req.params.id);
-
-  if (error) {
-    console.error("Erreur delete action:", error);
-    return res.status(500).json({ error: error.message });
-  }
-
-  res.json({ success: true });
-});
-
-/* ACCOMPAGNEMENT - ENTRETIENS */
+/* ENTRETIENS */
 
 app.get("/api/entretiens", authMiddleware, async (req, res) => {
   const { data, error } = await supabase
     .from("entretiens")
-    .select(`
-      *,
-      beneficiaires (
-        id,
-        nom,
-        ville
-      )
-    `)
+    .select("*, beneficiaires(id, nom, ville)")
     .order("created_at", { ascending: false });
 
-  if (error) {
-    console.error("Erreur get entretiens:", error);
-    return res.status(500).json({ error: error.message });
-  }
-
-  res.json(data);
-});
-
-app.get("/api/beneficiaires/:id/entretiens", authMiddleware, async (req, res) => {
-  const { data, error } = await supabase
-    .from("entretiens")
-    .select("*")
-    .eq("beneficiaire_id", req.params.id)
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    console.error("Erreur get entretiens beneficiaire:", error);
-    return res.status(500).json({ error: error.message });
-  }
-
+  if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 });
 
@@ -312,98 +228,36 @@ app.post("/api/entretiens", authMiddleware, async (req, res) => {
 
   const { data, error } = await supabase
     .from("entretiens")
-    .insert([
-      {
-        beneficiaire_id: e.beneficiaire_id,
-        date: e.date || new Date().toISOString().slice(0, 10),
-        type: e.type || "",
-        compte_rendu: e.compte_rendu || "",
-        suite_a_donner: e.suite_a_donner || "",
-      },
-    ])
-    .select()
-    .single();
-
-  if (error) {
-    console.error("Erreur add entretien:", error);
-    return res.status(500).json({ error: error.message });
-  }
-
-  res.json(data);
-});
-
-app.put("/api/entretiens/:id", authMiddleware, async (req, res) => {
-  const e = req.body;
-
-  const { data, error } = await supabase
-    .from("entretiens")
-    .update({
-      date: e.date || "",
+    .insert([{
+      beneficiaire_id: e.beneficiaire_id,
+      date: e.date || new Date().toISOString().slice(0, 10),
       type: e.type || "",
       compte_rendu: e.compte_rendu || "",
       suite_a_donner: e.suite_a_donner || "",
-    })
-    .eq("id", req.params.id)
+    }])
     .select()
     .single();
 
-  if (error) {
-    console.error("Erreur update entretien:", error);
-    return res.status(500).json({ error: error.message });
-  }
-
+  if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 });
 
 app.delete("/api/entretiens/:id", authMiddleware, async (req, res) => {
-  const { error } = await supabase
-    .from("entretiens")
-    .delete()
-    .eq("id", req.params.id);
+  const { error } = await supabase.from("entretiens").delete().eq("id", req.params.id);
 
-  if (error) {
-    console.error("Erreur delete entretien:", error);
-    return res.status(500).json({ error: error.message });
-  }
-
+  if (error) return res.status(500).json({ error: error.message });
   res.json({ success: true });
 });
 
-/* ACCOMPAGNEMENT - DOSSIERS D'INSTRUCTION */
+/* DOSSIERS */
 
 app.get("/api/dossiers-instruction", authMiddleware, async (req, res) => {
   const { data, error } = await supabase
     .from("dossiers_instruction")
-    .select(`
-      *,
-      beneficiaires (
-        id,
-        nom,
-        ville
-      )
-    `)
+    .select("*, beneficiaires(id, nom, ville)")
     .order("created_at", { ascending: false });
 
-  if (error) {
-    console.error("Erreur get dossiers:", error);
-    return res.status(500).json({ error: error.message });
-  }
-
-  res.json(data);
-});
-
-app.get("/api/beneficiaires/:id/dossiers-instruction", authMiddleware, async (req, res) => {
-  const { data, error } = await supabase
-    .from("dossiers_instruction")
-    .select("*")
-    .eq("beneficiaire_id", req.params.id)
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    console.error("Erreur get dossiers beneficiaire:", error);
-    return res.status(500).json({ error: error.message });
-  }
-
+  if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 });
 
@@ -416,48 +270,18 @@ app.post("/api/dossiers-instruction", authMiddleware, async (req, res) => {
 
   const { data, error } = await supabase
     .from("dossiers_instruction")
-    .insert([
-      {
-        beneficiaire_id: d.beneficiaire_id,
-        type: d.type || "",
-        statut: d.statut || "Ouvert",
-        date_ouverture: d.date_ouverture || new Date().toISOString().slice(0, 10),
-        echeance: d.echeance || "",
-        notes: d.notes || "",
-      },
-    ])
-    .select()
-    .single();
-
-  if (error) {
-    console.error("Erreur add dossier:", error);
-    return res.status(500).json({ error: error.message });
-  }
-
-  res.json(data);
-});
-
-app.put("/api/dossiers-instruction/:id", authMiddleware, async (req, res) => {
-  const d = req.body;
-
-  const { data, error } = await supabase
-    .from("dossiers_instruction")
-    .update({
+    .insert([{
+      beneficiaire_id: d.beneficiaire_id,
       type: d.type || "",
-      statut: d.statut || "",
-      date_ouverture: d.date_ouverture || "",
+      statut: d.statut || "Ouvert",
+      date_ouverture: d.date_ouverture || new Date().toISOString().slice(0, 10),
       echeance: d.echeance || "",
       notes: d.notes || "",
-    })
-    .eq("id", req.params.id)
+    }])
     .select()
     .single();
 
-  if (error) {
-    console.error("Erreur update dossier:", error);
-    return res.status(500).json({ error: error.message });
-  }
-
+  if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 });
 
@@ -467,11 +291,114 @@ app.delete("/api/dossiers-instruction/:id", authMiddleware, async (req, res) => 
     .delete()
     .eq("id", req.params.id);
 
-  if (error) {
-    console.error("Erreur delete dossier:", error);
-    return res.status(500).json({ error: error.message });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
+});
+
+/* DOCUMENTS */
+
+app.get("/api/documents", authMiddleware, async (req, res) => {
+  const { data, error } = await supabase
+    .from("documents")
+    .select(`
+      *,
+      beneficiaires(id, nom),
+      dossiers_instruction(id, type, statut)
+    `)
+    .order("created_at", { ascending: false });
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.get("/api/beneficiaires/:id/documents", authMiddleware, async (req, res) => {
+  const { data, error } = await supabase
+    .from("documents")
+    .select("*")
+    .eq("beneficiaire_id", req.params.id)
+    .order("created_at", { ascending: false });
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.post("/api/documents/upload", authMiddleware, upload.single("file"), async (req, res) => {
+  try {
+    const { beneficiaire_id, dossier_id, notes } = req.body;
+
+    if (!req.file) return res.status(400).json({ error: "Fichier manquant" });
+    if (!beneficiaire_id) return res.status(400).json({ error: "beneficiaire_id obligatoire" });
+
+    const originalName = req.file.originalname;
+    const safeName = originalName.replace(/[^a-zA-Z0-9.\-_]/g, "_");
+    const filePath = `${beneficiaire_id}/${Date.now()}-${safeName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("documents")
+      .upload(filePath, req.file.buffer, {
+        contentType: req.file.mimetype,
+        upsert: false,
+      });
+
+    if (uploadError) {
+      console.error("Erreur upload storage:", uploadError);
+      return res.status(500).json({ error: uploadError.message });
+    }
+
+    const { data: publicData } = supabase.storage
+      .from("documents")
+      .getPublicUrl(filePath);
+
+    const publicUrl = publicData.publicUrl;
+
+    const { data, error } = await supabase
+      .from("documents")
+      .insert([{
+        beneficiaire_id,
+        dossier_id: dossier_id || null,
+        nom: originalName,
+        type: req.file.mimetype,
+        url: publicUrl,
+        notes: notes || "",
+      }])
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Erreur insert document:", error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json(data);
+  } catch (error) {
+    console.error("Erreur upload document:", error);
+    res.status(500).json({ error: "Erreur upload document" });
+  }
+});
+
+app.delete("/api/documents/:id", authMiddleware, async (req, res) => {
+  const { data: doc, error: docError } = await supabase
+    .from("documents")
+    .select("*")
+    .eq("id", req.params.id)
+    .single();
+
+  if (docError || !doc) {
+    return res.status(404).json({ error: "Document introuvable" });
   }
 
+  const marker = "/storage/v1/object/public/documents/";
+  const filePath = doc.url?.includes(marker)
+    ? doc.url.split(marker)[1]
+    : null;
+
+  if (filePath) {
+    await supabase.storage.from("documents").remove([filePath]);
+  }
+
+  const { error } = await supabase.from("documents").delete().eq("id", req.params.id);
+
+  if (error) return res.status(500).json({ error: error.message });
   res.json({ success: true });
 });
 
