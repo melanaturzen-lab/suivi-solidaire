@@ -791,6 +791,12 @@ const [previewUrl, setPreviewUrl] = useState(null);
                 <p>{doc.notes || "Aucune note."}</p>
 
                 <br />
+<button
+  onClick={() => setPreviewUrl(doc.url)}
+  style={{ marginTop: 10 }}
+>
+  👁️ Voir
+</button>
 
                 <button
                   className="danger"
