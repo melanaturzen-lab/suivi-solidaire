@@ -265,21 +265,34 @@ function AuthPage({ setToken, setUser, showToast }) {
 }
 
 function Dashboard({ beneficiaires }) {
+  const total = beneficiaires.length;
+
+  const urgents = beneficiaires.filter(
+    (b) => b.priorite?.toLowerCase() === "urgente"
+  ).length;
+
+  const sansVille = beneficiaires.filter(
+    (b) => !b.ville
+  ).length;
+
   return (
     <>
       <h1>Tableau de bord</h1>
+
       <div className="cards">
         <div className="card">
-          <p>Bénéficiaires</p>
-          <h2>{beneficiaires.length}</h2>
+          <p>Total bénéficiaires</p>
+          <h2>{total}</h2>
         </div>
+
         <div className="card">
-          <p>Backend</p>
-          <h2>En ligne</h2>
+          <p>Situations urgentes</p>
+          <h2>{urgents}</h2>
         </div>
+
         <div className="card">
-          <p>Application</p>
-          <h2>Active</h2>
+          <p>Dossiers incomplets</p>
+          <h2>{sansVille}</h2>
         </div>
       </div>
     </>
