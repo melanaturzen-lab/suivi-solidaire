@@ -654,6 +654,7 @@ function Documents({ beneficiaires, headers, showToast }) {
   const [beneficiaireId, setBeneficiaireId] = useState("");
   const [notes, setNotes] = useState("");
   const [uploading, setUploading] = useState(false);
+const [previewUrl, setPreviewUrl] = useState(null);
 
   async function loadDocuments() {
     try {
@@ -789,10 +790,6 @@ function Documents({ beneficiaires, headers, showToast }) {
                 </p>
                 <p>{doc.notes || "Aucune note."}</p>
 
-                <a href={doc.url} target="_blank" rel="noreferrer">
-                  Ouvrir le document
-                </a>
-
                 <br />
 
                 <button
@@ -805,10 +802,27 @@ function Documents({ beneficiaires, headers, showToast }) {
               </div>
             ))
           )}
+          {previewUrl && (
+  <div style={{ marginTop: 20 }}>
+    <h3>Aperçu du document</h3>
+
+    <button onClick={() => setPreviewUrl(null)}>
+      ❌ Fermer
+    </button>
+
+    <iframe
+      src={previewUrl}
+      width="100%"
+      height="500px"
+      style={{ borderRadius: 10, marginTop: 10 }}
+    />
+  </div>
+)}
         </div>
       </div>
     </>
   );
+
 }
 function Panel({ title, text }) {
   return (
