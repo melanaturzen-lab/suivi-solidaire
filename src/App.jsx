@@ -817,19 +817,33 @@ const [previewUrl, setPreviewUrl] = useState(null);
               </button>
 
               <p className="muted">
-                Aperçu du document (cliquez sur Télécharger pour ouvrir en grand)
-              </p>
+  Aperçu du document (cliquez sur Télécharger pour ouvrir en grand)
+</p>
 
-              <iframe
-                src={previewUrl}
-                style={{
-                  width: "100%",
-                  height: "600px",
-                  border: "none",
-                  borderRadius: 10,
-                  background: "white",
-                }}
-              />
+<button
+  onClick={() => window.open(previewUrl, "_blank")}
+  style={{
+    marginBottom: 12,
+    background: "#3b82f6",
+    color: "white",
+    padding: "8px 14px",
+    border: "none",
+    borderRadius: 6,
+    cursor: "pointer"
+  }}
+>
+  ⬇️ Télécharger / Ouvrir en grand
+</button>
+<iframe
+  src={previewUrl}
+  style={{
+    width: "100%",
+    height: "600px",
+    border: "none",
+    borderRadius: 10,
+    background: "white",
+  }}
+/>
             </div>
           )}
         </div>
