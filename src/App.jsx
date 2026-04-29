@@ -809,26 +809,33 @@ const [previewUrl, setPreviewUrl] = useState(null);
             ))
           )}
           {previewUrl && (
-  <div style={{ marginTop: 20 }}>
-    <h3>Aperçu du document</h3>
+            <div style={{ marginTop: 20 }}>
+              <h3>Aperçu du document</h3>
 
-    <button onClick={() => setPreviewUrl(null)}>
-      ❌ Fermer
-    </button>
+              <button onClick={() => setPreviewUrl(null)}>
+                ❌ Fermer
+              </button>
 
-    <iframe
-      src={previewUrl}
-      width="100%"
-      height="500px"
-      style={{ borderRadius: 10, marginTop: 10 }}
-    />
-  </div>
-)}
+              <p className="muted">
+                Aperçu du document (cliquez sur Télécharger pour ouvrir en grand)
+              </p>
+
+              <iframe
+                src={previewUrl}
+                style={{
+                  width: "100%",
+                  height: "600px",
+                  border: "none",
+                  borderRadius: 10,
+                  background: "white",
+                }}
+              />
+            </div>
+          )}
         </div>
       </div>
     </>
   );
-
 }
 function Panel({ title, text }) {
   return (
