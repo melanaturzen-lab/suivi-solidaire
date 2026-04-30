@@ -655,6 +655,7 @@ function Documents({ beneficiaires, headers, showToast }) {
   const [notes, setNotes] = useState("");
   const [uploading, setUploading] = useState(false);
 const [previewUrl, setPreviewUrl] = useState(null);
+const [selectedDoc, setSelectedDoc] = useState(null);
 
   async function loadDocuments() {
     try {
@@ -795,11 +796,14 @@ const [previewUrl, setPreviewUrl] = useState(null);
                 <br />
 
                 <button
-                  onClick={() => setPreviewUrl(doc.url)}
-                  style={{ marginTop: 10 }}
-                >
-                  👁️ Voir
-                </button>
+  onClick={() => {
+    setPreviewUrl(doc.url);
+    setSelectedDoc(doc);
+  }}
+  style={{ marginTop: 10 }}
+>
+  👁️ Voir
+</button>
 
                 <button
                   className="danger"
@@ -856,12 +860,7 @@ const [previewUrl, setPreviewUrl] = useState(null);
               <div style={{ display: "flex", gap: 10 }}>
                 <button
   onClick={() => {
-    const link = document.createElement("a");
-    link.href = previewUrl;
-    link.download = "document";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    window.open(`${API}/documents/${selectedDoc.id}/download`, "_blank");
   }}
   style={{
     background: "#2563eb",
@@ -873,7 +872,7 @@ const [previewUrl, setPreviewUrl] = useState(null);
     fontWeight: 700,
   }}
 >
-  Télécharger
+  ⬇️ Télécharger
 </button>
 
 <button
