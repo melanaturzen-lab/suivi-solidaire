@@ -855,19 +855,41 @@ const [previewUrl, setPreviewUrl] = useState(null);
 
               <div style={{ display: "flex", gap: 10 }}>
                 <button
-                  onClick={() => window.open(previewUrl, "_blank")}
-                  style={{
-                    background: "#2563eb",
-                    color: "white",
-                    padding: "10px 14px",
-                    border: "none",
-                    borderRadius: 10,
-                    cursor: "pointer",
-                    fontWeight: 700,
-                  }}
-                >
-                  Télécharger / Ouvrir
-                </button>
+  onClick={() => {
+    const link = document.createElement("a");
+    link.href = previewUrl;
+    link.download = "document";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }}
+  style={{
+    background: "#2563eb",
+    color: "white",
+    padding: "10px 14px",
+    border: "none",
+    borderRadius: 10,
+    cursor: "pointer",
+    fontWeight: 700,
+  }}
+>
+  Télécharger
+</button>
+
+<button
+  onClick={() => window.open(previewUrl, "_blank")}
+  style={{
+    background: "#334155",
+    color: "white",
+    padding: "10px 14px",
+    border: "none",
+    borderRadius: 10,
+    cursor: "pointer",
+    fontWeight: 700,
+  }}
+>
+  Ouvrir
+</button>
 
                 <button
                   onClick={() => setPreviewUrl(null)}
