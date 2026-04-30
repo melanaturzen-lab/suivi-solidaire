@@ -809,28 +809,91 @@ const [previewUrl, setPreviewUrl] = useState(null);
             ))
           )}
           {previewUrl && (
-            <div style={{ marginTop: 20 }}>
-              <h3>Aperçu du document</h3>
+  <div
+    style={{
+      position: "fixed",
+      inset: 0,
+      background: "rgba(2, 6, 23, 0.92)",
+      backdropFilter: "blur(10px)",
+      zIndex: 9999,
+      padding: 24,
+      animation: "fadeIn 0.25s ease",
+    }}
+  >
+    <div
+      style={{
+        height: "100%",
+        background: "linear-gradient(180deg, #0f172a, #020617)",
+        border: "1px solid rgba(148,163,184,0.25)",
+        borderRadius: 20,
+        padding: 18,
+        display: "flex",
+        flexDirection: "column",
+        gap: 14,
+        boxShadow: "0 30px 80px rgba(0,0,0,0.45)",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 12,
+        }}
+      >
+        <div>
+          <h2 style={{ margin: 0 }}>Aperçu du document</h2>
+          <p className="muted" style={{ margin: "6px 0 0" }}>
+            Consultez le document ou ouvrez-le en grand.
+          </p>
+        </div>
 
-              <button onClick={() => setPreviewUrl(null)}>
-                ❌ Fermer
-              </button>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button
+            onClick={() => window.open(previewUrl, "_blank")}
+            style={{
+              background: "#2563eb",
+              color: "white",
+              padding: "10px 14px",
+              border: "none",
+              borderRadius: 10,
+              cursor: "pointer",
+              fontWeight: 700,
+            }}
+          >
+            Télécharger / Ouvrir
+          </button>
 
-              <p className="muted">
-  Aperçu du document (cliquez sur Télécharger pour ouvrir en grand)
-</p>
+          <button
+            onClick={() => setPreviewUrl(null)}
+            style={{
+              background: "#991b1b",
+              color: "white",
+              padding: "10px 14px",
+              border: "none",
+              borderRadius: 10,
+              cursor: "pointer",
+              fontWeight: 700,
+            }}
+          >
+            Fermer
+          </button>
+        </div>
+      </div>
 
-<button
-  onClick={() => window.open(previewUrl, "_blank")}
-  style={{
-    marginBottom: 12,
-    background: "#3b82f6",
-    color: "white",
-    padding: "8px 14px",
-    border: "none",
-    borderRadius: 6,
-    cursor: "pointer"
-  }}
+      <iframe
+        src={previewUrl}
+        style={{
+          flex: 1,
+          width: "100%",
+          border: "none",
+          borderRadius: 14,
+          background: "white",
+        }}
+      />
+    </div>
+  </div>
+)}
 >
   ⬇️ Télécharger / Ouvrir en grand
 </button>
