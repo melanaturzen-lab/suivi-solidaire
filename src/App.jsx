@@ -894,27 +894,6 @@ const [previewUrl, setPreviewUrl] = useState(null);
     </div>
   </div>
 )}
-
->
-  ⬇️ Télécharger / Ouvrir en grand
-</button>
-<iframe
-  src={previewUrl}
-  style={{
-    width: "100%",
-    height: "600px",
-    border: "none",
-    borderRadius: 10,
-    background: "white",
-  }}
-/>
-            </div>
-          )}
-        </div>
-      </div>
-    </>
-  );
-}
 function Panel({ title, text }) {
   return (
     <div className="panel">
