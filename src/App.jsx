@@ -894,6 +894,7 @@ const [previewUrl, setPreviewUrl] = useState(null);
     </div>
   </div>
 )}
+
 >
   ⬇️ Télécharger / Ouvrir en grand
 </button>
