@@ -382,7 +382,43 @@ app.delete("/api/documents/:id", authMiddleware, async (req, res) => {
     .select("*")
     .eq("id", req.params.id)
     .single();
+    
+app.get("/api/documents/:id/download", authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
 
+    const { data: doc, error } = await supabase
+      .from("documents")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (error || !doc) {
+      return res.status(404).json({ error: "Document introuvable" });
+    }
+
+    const response = await fetch(doc.url);
+
+    if (!response.ok) {
+      return res.status(500).json({ error: "Erreur téléchargement fichier" });
+    }
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${doc.nom}"`
+    );
+    res.setHeader(
+      "Content-Type",
+      response.headers.get("content-type") || "application/octet-stream"
+    );
+
+    res.send(buffer);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
   if (docError || !doc) {
     return res.status(404).json({ error: "Document introuvable" });
   }
