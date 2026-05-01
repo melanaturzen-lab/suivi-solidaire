@@ -265,34 +265,21 @@ function AuthPage({ setToken, setUser, showToast }) {
 }
 
 function Dashboard({ beneficiaires }) {
-  const total = beneficiaires.length;
-
-  const urgents = beneficiaires.filter(
-    (b) => b.priorite?.toLowerCase() === "urgente"
-  ).length;
-
-  const sansVille = beneficiaires.filter(
-    (b) => !b.ville
-  ).length;
-
   return (
     <>
       <h1>Tableau de bord</h1>
-
       <div className="cards">
         <div className="card">
-          <p>Total bénéficiaires</p>
-          <h2>{total}</h2>
+          <p>Bénéficiaires</p>
+          <h2>{beneficiaires.length}</h2>
         </div>
-
         <div className="card">
-          <p>Situations urgentes</p>
-          <h2>{urgents}</h2>
+          <p>Backend</p>
+          <h2>En ligne</h2>
         </div>
-
         <div className="card">
-          <p>Dossiers incomplets</p>
-          <h2>{sansVille}</h2>
+          <p>Application</p>
+          <h2>Active</h2>
         </div>
       </div>
     </>
@@ -654,8 +641,8 @@ function Documents({ beneficiaires, headers, showToast }) {
   const [beneficiaireId, setBeneficiaireId] = useState("");
   const [notes, setNotes] = useState("");
   const [uploading, setUploading] = useState(false);
-const [previewUrl, setPreviewUrl] = useState(null);
-const [selectedDoc, setSelectedDoc] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [selectedDoc, setSelectedDoc] = useState(null);
 
   async function loadDocuments() {
     try {
@@ -732,11 +719,49 @@ const [selectedDoc, setSelectedDoc] = useState(null);
         return;
       }
 
+      if (selectedDoc?.id === id) {
+        setPreviewUrl(null);
+        setSelectedDoc(null);
+      }
+
       await loadDocuments();
       showToast("Document supprimé.");
     } catch (error) {
       console.error(error);
       showToast("Erreur suppression document", "error");
+    }
+  }
+
+  async function downloadDocument() {
+    if (!selectedDoc?.id) {
+      showToast("Aucun document sélectionné", "error");
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API}/documents/${selectedDoc.id}/download`, {
+        headers: headers(),
+      });
+
+      if (!res.ok) {
+        showToast("Erreur téléchargement document", "error");
+        return;
+      }
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = selectedDoc.nom || "document";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error(error);
+      showToast("Erreur téléchargement document", "error");
     }
   }
 
@@ -777,7 +802,7 @@ const [selectedDoc, setSelectedDoc] = useState(null);
           </button>
         </div>
 
-         <div className="panel">
+        <div className="panel">
           <h2>Documents enregistrés</h2>
 
           {documents.length === 0 ? (
@@ -796,14 +821,14 @@ const [selectedDoc, setSelectedDoc] = useState(null);
                 <br />
 
                 <button
-  onClick={() => {
-    setPreviewUrl(doc.url);
-    setSelectedDoc(doc);
-  }}
-  style={{ marginTop: 10 }}
->
-  👁️ Voir
-</button>
+                  onClick={() => {
+                    setPreviewUrl(doc.url);
+                    setSelectedDoc(doc);
+                  }}
+                  style={{ marginTop: 10 }}
+                >
+                  👁️ Voir
+                </button>
 
                 <button
                   className="danger"
@@ -827,6 +852,7 @@ const [selectedDoc, setSelectedDoc] = useState(null);
             backdropFilter: "blur(10px)",
             zIndex: 9999,
             padding: 24,
+            animation: "fadeIn 0.25s ease",
           }}
         >
           <div
@@ -859,45 +885,40 @@ const [selectedDoc, setSelectedDoc] = useState(null);
 
               <div style={{ display: "flex", gap: 10 }}>
                 <button
-  onClick={async () => {
-  const res = await fetch(`${API}/documents/${selectedDoc.id}/download`, {
-    headers: headers(),
-  });
-
-  if (!res.ok) {
-    alert("Erreur téléchargement");
-    return;
-  }
-
-  const blob = await res.blob();
-  const url = window.URL.createObjectURL(blob);
-
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = selectedDoc.nom || "document";
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-
-  window.URL.revokeObjectURL(url);
-}}
-
- style={{
-    background: "#334155",
-    color: "white",
-    padding: "10px 14px",
-    border: "none",
-    borderRadius: 10,
-    cursor: "pointer",
-    fontWeight: 700,
-  }}
-  >
-  ⬇️ Télécharger
-</button>
-</button>
+                  onClick={downloadDocument}
+                  style={{
+                    background: "#2563eb",
+                    color: "white",
+                    padding: "10px 14px",
+                    border: "none",
+                    borderRadius: 10,
+                    cursor: "pointer",
+                    fontWeight: 700,
+                  }}
+                >
+                  ⬇️ Télécharger
+                </button>
 
                 <button
-                  onClick={() => setPreviewUrl(null)}
+                  onClick={() => window.open(previewUrl, "_blank")}
+                  style={{
+                    background: "#334155",
+                    color: "white",
+                    padding: "10px 14px",
+                    border: "none",
+                    borderRadius: 10,
+                    cursor: "pointer",
+                    fontWeight: 700,
+                  }}
+                >
+                  Ouvrir
+                </button>
+
+                <button
+                  onClick={() => {
+                    setPreviewUrl(null);
+                    setSelectedDoc(null);
+                  }}
                   style={{
                     background: "#991b1b",
                     color: "white",
@@ -928,7 +949,8 @@ const [selectedDoc, setSelectedDoc] = useState(null);
       )}
     </>
   );
-}       
+}
+
 function Panel({ title, text }) {
   return (
     <div className="panel">
@@ -1157,6 +1179,17 @@ function Styles() {
       }
 
       .muted { color: #94a3b8; }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: scale(0.98);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
 
       @media (max-width: 900px) {
         .app { flex-direction: column; }
