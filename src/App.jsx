@@ -859,25 +859,30 @@ const [selectedDoc, setSelectedDoc] = useState(null);
 
               <div style={{ display: "flex", gap: 10 }}>
                 <button
-  onClick={() => {
-    window.open(`${API}/documents/${selectedDoc.id}/download`, "_blank");
-  }}
-  style={{
-    background: "#2563eb",
-    color: "white",
-    padding: "10px 14px",
-    border: "none",
-    borderRadius: 10,
-    cursor: "pointer",
-    fontWeight: 700,
-  }}
->
-  ⬇️ Télécharger
-</button>
+  onClick={async () => {
+  const res = await fetch(`${API}/documents/${selectedDoc.id}/download`, {
+    headers: headers(),
+  });
 
-<button
-  onClick={() => window.open(previewUrl, "_blank")}
-  style={{
+  if (!res.ok) {
+    alert("Erreur téléchargement");
+    return;
+  }
+
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = selectedDoc.nom || "document";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  window.URL.revokeObjectURL(url);
+}}
+
+ style={{
     background: "#334155",
     color: "white",
     padding: "10px 14px",
@@ -886,8 +891,9 @@ const [selectedDoc, setSelectedDoc] = useState(null);
     cursor: "pointer",
     fontWeight: 700,
   }}
->
-  Ouvrir
+  >
+  ⬇️ Télécharger
+</button>
 </button>
 
                 <button
