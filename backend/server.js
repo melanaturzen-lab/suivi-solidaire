@@ -423,9 +423,10 @@ app.get("/api/documents/:id/download", authMiddleware, async (req, res) => {
     res.status(500).json({ error: "Erreur serveur" });
   }
 });
-    res.send(buffer);
+        res.send(buffer);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: "Erreur serveur" });
   }
 });
   if (docError || !doc) {
