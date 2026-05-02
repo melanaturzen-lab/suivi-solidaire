@@ -397,6 +397,7 @@ app.get("/api/documents/:id/download", authMiddleware, async (req, res) => {
       return res.status(404).json({ error: "Document introuvable" });
     }
 
+    // 🔥 IMPORTANT : doc.url doit être PUBLIC (Supabase Storage public)
     const response = await fetch(doc.url);
 
     if (!response.ok) {
@@ -407,13 +408,21 @@ app.get("/api/documents/:id/download", authMiddleware, async (req, res) => {
 
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename="${doc.nom}"`
+      `attachment; filename="${doc.nom || "document"}"`
     );
+
     res.setHeader(
       "Content-Type",
       response.headers.get("content-type") || "application/octet-stream"
     );
 
+    res.send(buffer);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
     res.send(buffer);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -462,6 +471,54 @@ app.get("/api/documents/:id/download", authMiddleware, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+/* =========================
+   ATELIERS
+========================= */
+
+app.get("/api/ateliers", authMiddleware, async (req, res) => {
+  const { data, error } = await supabase
+    .from("ateliers")
+    .select("*, atelier_participants(*, beneficiaires(id, nom))")
+    .order("date", { ascending: true });
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.post("/api/ateliers", authMiddleware, async (req, res) => {
+  const a = req.body;
+
+  const { data, error } = await supabase
+    .from("ateliers")
+    .insert([{
+      titre: a.titre || "",
+      date: a.date || "",
+      lieu: a.lieu || "",
+      intervenant: a.intervenant || "",
+      description: a.description || "",
+    }])
+    .select()
+    .single();
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.post("/api/ateliers/:id/participants", authMiddleware, async (req, res) => {
+  const { beneficiaire_id } = req.body;
+
+  const { data, error } = await supabase
+    .from("atelier_participants")
+    .insert([{
+      atelier_id: req.params.id,
+      beneficiaire_id,
+    }])
+    .select()
+    .single();
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
 });
 
 /* START */
