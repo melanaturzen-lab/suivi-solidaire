@@ -383,52 +383,6 @@ app.delete("/api/documents/:id", authMiddleware, async (req, res) => {
     .eq("id", req.params.id)
     .single();
 
-app.get("/api/documents/:id/download", authMiddleware, async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const { data: doc, error } = await supabase
-      .from("documents")
-      .select("*")
-      .eq("id", id)
-      .single();
-
-    if (error || !doc) {
-      return res.status(404).json({ error: "Document introuvable" });
-    }
-
-    // 🔥 IMPORTANT : doc.url doit être PUBLIC (Supabase Storage public)
-    const response = await fetch(doc.url);
-
-    if (!response.ok) {
-      return res.status(500).json({ error: "Erreur téléchargement fichier" });
-    }
-
-    const buffer = Buffer.from(await response.arrayBuffer());
-
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename="${doc.nom || "document"}"`
-    );
-
-    res.setHeader(
-      "Content-Type",
-      response.headers.get("content-type") || "application/octet-stream"
-    );
-
-    res.send(buffer);
-
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Erreur serveur" });
-  }
-});
-        res.send(buffer);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Erreur serveur" });
-  }
-});
   if (docError || !doc) {
     return res.status(404).json({ error: "Document introuvable" });
   }
