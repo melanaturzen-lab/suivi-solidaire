@@ -484,6 +484,45 @@ app.post("/api/ateliers", authMiddleware, async (req, res) => {
     res.status(500).json({ error: "Erreur serveur" });
   }
 });
+app.put("/api/ateliers/:id", authMiddleware, async (req, res) => {
+  const a = req.body;
+
+  const { data, error } = await supabase
+    .from("ateliers")
+    .update({
+      titre: a.titre || "",
+      date: a.date || "",
+      lieu: a.lieu || "",
+      intervenant: a.intervenant || "",
+      description: a.description || "",
+    })
+    .eq("id", req.params.id)
+    .select()
+    .single();
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.delete("/api/ateliers/:id", authMiddleware, async (req, res) => {
+  const { error } = await supabase
+    .from("ateliers")
+    .delete()
+    .eq("id", req.params.id);
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
+});
+
+app.delete("/api/atelier-participants/:id", authMiddleware, async (req, res) => {
+  const { error } = await supabase
+    .from("atelier_participants")
+    .delete()
+    .eq("id", req.params.id);
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
+});
 
 /* START */
 
