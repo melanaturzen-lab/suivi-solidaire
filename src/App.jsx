@@ -123,6 +123,7 @@ export default function App() {
           <button onClick={() => setPage("beneficiaires")}>Bénéficiaires</button>
           <button onClick={() => setPage("accompagnement")}>Accompagnement</button>
           <button onClick={() => setPage("documents")}>Documents</button>
+          <button onClick={() => setPage("ateliers")}>Ateliers</button>
           <button onClick={() => setPage("securite")}>Confidentialité</button>
         </div>
 
@@ -161,6 +162,13 @@ export default function App() {
 
         {page === "documents" && (
   <Documents
+    beneficiaires={beneficiaires}
+    headers={headers}
+    showToast={showToast}
+  />
+)}
+{page === "ateliers" && (
+  <Ateliers
     beneficiaires={beneficiaires}
     headers={headers}
     showToast={showToast}
@@ -406,10 +414,13 @@ function Beneficiaires({ beneficiaires, selected, setSelected, loadBeneficiaires
               <p><strong>Besoins :</strong> {selected.besoin}</p>
               <p><strong>Notes :</strong> {selected.notes}</p>
 
-              <button className="primary" onClick={exportPDF}>Exporter PDF</button>
-              <button className="danger" onClick={() => deleteBeneficiaire(selected.id)}>
-                Supprimer
-              </button>
+              <button className="primary" onClick={exportPDF}>
+  Exporter PDF
+</button>
+
+<button className="danger" onClick={() => deleteBeneficiaire()}>
+  Supprimer
+</button>
             </>
           )}
         </div>
@@ -950,7 +961,232 @@ function Documents({ beneficiaires, headers, showToast }) {
     </>
   );
 }
+function Ateliers({ beneficiaires, headers, showToast }) {
+  const [ateliers, setAteliers] = useState([]);
+  const [form, setForm] = useState({
+    titre: "",
+    date: "",
+    lieu: "",
+    intervenant: "",
+    description: "",
+  });
+  const [selectedAtelier, setSelectedAtelier] = useState(null);
+  const [participantId, setParticipantId] = useState("");
 
+  async function loadAteliers() {
+    try {
+      const res = await fetch(`${API}/ateliers`, {
+        headers: headers(),
+      });
+
+      const data = await res.json();
+      setAteliers(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error(error);
+      showToast("Erreur chargement ateliers", "error");
+    }
+  }
+
+  useEffect(() => {
+    loadAteliers();
+  }, []);
+
+  async function addAtelier() {
+    if (!form.titre || !form.date || !form.lieu || !form.intervenant) {
+      showToast("Titre, date, lieu et intervenant obligatoires.", "error");
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API}/ateliers`, {
+        method: "POST",
+        headers: headers(),
+        body: JSON.stringify(form),
+      });
+
+      if (!res.ok) throw new Error();
+
+      setForm({
+        titre: "",
+        date: "",
+        lieu: "",
+        intervenant: "",
+        description: "",
+      });
+
+      await loadAteliers();
+      showToast("Atelier ajouté.");
+    } catch (error) {
+      console.error(error);
+      showToast("Erreur ajout atelier", "error");
+    }
+  }
+
+  async function addParticipant() {
+    if (!selectedAtelier || !participantId) {
+      showToast("Choisis un atelier et un bénéficiaire.", "error");
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API}/ateliers/${selectedAtelier.id}/participants`, {
+        method: "POST",
+        headers: headers(),
+        body: JSON.stringify({
+          beneficiaire_id: participantId,
+        }),
+      });
+
+      if (!res.ok) throw new Error();
+
+      setParticipantId("");
+      await loadAteliers();
+      showToast("Participant ajouté.");
+
+      const updated = ateliers.find((a) => a.id === selectedAtelier.id);
+      if (updated) setSelectedAtelier(updated);
+    } catch (error) {
+      console.error(error);
+      showToast("Erreur ajout participant", "error");
+    }
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  const ateliersAVenir = ateliers.filter((a) => !a.date || a.date >= today);
+  const ateliersPasses = ateliers.filter((a) => a.date && a.date < today);
+
+  function AtelierCard({ atelier }) {
+    return (
+      <div
+        className={`history ${selectedAtelier?.id === atelier.id ? "item active" : ""}`}
+        onClick={() => setSelectedAtelier(atelier)}
+        style={{ cursor: "pointer" }}
+      >
+        <h3>{atelier.titre}</h3>
+        <p><strong>Date :</strong> {atelier.date || "Non renseignée"}</p>
+        <p><strong>Lieu :</strong> {atelier.lieu || "Non renseigné"}</p>
+        <p><strong>Intervenant :</strong> {atelier.intervenant || "Non renseigné"}</p>
+        <p>{atelier.description || "Aucune description."}</p>
+        <p className="muted">
+          Participants : {atelier.atelier_participants?.length || 0}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <h1>Ateliers</h1>
+
+      <div className="layout">
+        <div className="panel">
+          <h2>Créer un atelier</h2>
+
+          <input
+            placeholder="Titre de l’atelier"
+            value={form.titre}
+            onChange={(e) => setForm({ ...form, titre: e.target.value })}
+          />
+
+          <input
+            type="date"
+            value={form.date}
+            onChange={(e) => setForm({ ...form, date: e.target.value })}
+          />
+
+          <input
+            placeholder="Lieu"
+            value={form.lieu}
+            onChange={(e) => setForm({ ...form, lieu: e.target.value })}
+          />
+
+          <input
+            placeholder="Intervenant"
+            value={form.intervenant}
+            onChange={(e) => setForm({ ...form, intervenant: e.target.value })}
+          />
+
+          <textarea
+            placeholder="Description / objectifs de l’atelier"
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+          />
+
+          <button className="primary" onClick={addAtelier}>
+            Valider l’atelier
+          </button>
+        </div>
+
+        <div className="panel">
+          <h2>Détail atelier</h2>
+
+          {!selectedAtelier ? (
+            <p className="muted">Sélectionne un atelier pour ajouter des participants.</p>
+          ) : (
+            <>
+              <h3>{selectedAtelier.titre}</h3>
+
+              <select
+                value={participantId}
+                onChange={(e) => setParticipantId(e.target.value)}
+              >
+                <option value="">Ajouter un participant</option>
+                {beneficiaires.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.nom}
+                  </option>
+                ))}
+              </select>
+
+              <button className="primary" onClick={addParticipant}>
+                Ajouter le participant
+              </button>
+
+              <h3>Participants</h3>
+
+              {selectedAtelier.atelier_participants?.length ? (
+                selectedAtelier.atelier_participants.map((p) => (
+                  <div className="history" key={p.id}>
+                    {p.beneficiaires?.nom || "Participant"}
+                  </div>
+                ))
+              ) : (
+                <p className="muted">Aucun participant ajouté.</p>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="layout">
+        <div className="panel">
+          <h2>Ateliers à venir</h2>
+
+          {ateliersAVenir.length === 0 ? (
+            <p className="muted">Aucun atelier à venir.</p>
+          ) : (
+            ateliersAVenir.map((atelier) => (
+              <AtelierCard key={atelier.id} atelier={atelier} />
+            ))
+          )}
+        </div>
+
+        <div className="panel">
+          <h2>Ateliers passés</h2>
+
+          {ateliersPasses.length === 0 ? (
+            <p className="muted">Aucun atelier passé.</p>
+          ) : (
+            ateliersPasses.map((atelier) => (
+              <AtelierCard key={atelier.id} atelier={atelier} />
+            ))
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
 function Panel({ title, text }) {
   return (
     <div className="panel">
