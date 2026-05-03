@@ -480,6 +480,23 @@ app.put("/api/ateliers/:id", authMiddleware, async (req, res) => {
   res.json(data);
 });
 
+app.post("/api/ateliers/:id/participants", authMiddleware, async (req, res) => {
+  const { beneficiaire_id } = req.body;
+
+  const { data, error } = await supabase
+    .from("atelier_participants")
+    .insert([{
+      atelier_id: req.params.id,
+      beneficiaire_id,
+    }])
+    .select()
+    .single();
+
+  if (error) return res.status(500).json({ error: error.message });
+
+  res.json(data);
+});
+
 app.delete("/api/ateliers/:id", authMiddleware, async (req, res) => {
   const { error } = await supabase
     .from("ateliers")
