@@ -240,5 +240,7 @@ function Ateliers({ headers, showToast }) {
               Supprimer l’atelier
             </button>
 
+</div>
+
   </>
 )}
