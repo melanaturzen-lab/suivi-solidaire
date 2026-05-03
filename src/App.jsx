@@ -208,39 +208,6 @@ function Ateliers({ headers, showToast }) {
       }}
     >
       Supprimer l’atelier
-    </button>
-  </>
-)}
-            {/* ✅ BOUTONS GARANTIS VISIBLES */}
-            <button
-              onClick={updateAtelier}
-              style={{
-                display: "block",
-                width: "100%",
-                background: "green",
-                color: "white",
-                marginTop: 15,
-                padding: 10,
-              }}
-            >
-              Modifier l’atelier
-            </button>
-
-            <button
-              onClick={() => deleteAtelier(selectedAtelier.id)}
-              style={{
-                display: "block",
-                width: "100%",
-                background: "red",
-                color: "white",
-                marginTop: 10,
-                padding: 10,
-              }}
-            >
-              Supprimer l’atelier
-            </button>
-
-</div>
-
+     </button>
   </>
 )}
