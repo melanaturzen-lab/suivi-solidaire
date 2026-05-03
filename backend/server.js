@@ -460,30 +460,6 @@ app.post("/api/ateliers", authMiddleware, async (req, res) => {
   res.json(data);
 });
 
-app.post("/api/ateliers", authMiddleware, async (req, res) => {
-  try {
-    const a = req.body;
-
-    const { data, error } = await supabase
-      .from("ateliers")
-      .insert([{
-        titre: a.titre,
-        date: a.date,
-        lieu: a.lieu,
-        intervenant: a.intervenant,
-        description: a.description
-      }])
-      .select()
-      .single();
-
-    if (error) return res.status(500).json({ error: error.message });
-
-    res.json(data);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Erreur serveur" });
-  }
-});
 app.put("/api/ateliers/:id", authMiddleware, async (req, res) => {
   const a = req.body;
 
