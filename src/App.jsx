@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
+import "./App.css";
 
-const API = import.meta.env.VITE_API;
+const API = "https://suivi-solidaire-backend.onrender.com";
 
 export default function App() {
   const [page, setPage] = useState("ateliers");
@@ -8,7 +9,7 @@ export default function App() {
   function headers() {
     return {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${localStorage.getItem("token")}`,
+      Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
     };
   }
 
@@ -17,12 +18,12 @@ export default function App() {
   }
 
   return (
-    <div style={{ display: "flex", height: "100vh" }}>
-      <aside style={{ width: 200, background: "#111", padding: 10 }}>
+    <div className="app">
+      <aside>
         <button onClick={() => setPage("ateliers")}>Ateliers</button>
       </aside>
 
-      <main style={{ flex: 1, padding: 20 }}>
+      <main>
         {page === "ateliers" && (
           <Ateliers headers={headers} showToast={showToast} />
         )}
@@ -35,27 +36,56 @@ function Ateliers({ headers, showToast }) {
   const [ateliers, setAteliers] = useState([]);
   const [selectedAtelier, setSelectedAtelier] = useState(null);
   const [participantId, setParticipantId] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadAteliers();
   }, []);
 
+  function formatDate(date) {
+    if (!date) return "";
+    return String(date).slice(0, 10);
+  }
+
   async function loadAteliers() {
-    const res = await fetch(`${API}/ateliers`, { headers: headers() });
-    const data = await res.json();
-    setAteliers(data || []);
+    try {
+      setLoading(true);
+
+      const res = await fetch(`${API}/ateliers`);
+
+      if (!res.ok) {
+        throw new Error("Erreur API ateliers");
+      }
+
+      const data = await res.json();
+      const list = Array.isArray(data) ? data : [];
+
+      setAteliers(list);
+
+      if (!selectedAtelier && list.length > 0) {
+        setSelectedAtelier(list[0]);
+      }
+    } catch (error) {
+      console.error("Erreur loadAteliers:", error);
+      showToast("Impossible de charger les ateliers");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function updateAtelier() {
     if (!selectedAtelier) return;
 
-    const res = await fetch(`${API}/ateliers/${selectedAtelier.id}`, {
+    const res = await fetch(`${API}/api/ateliers/${selectedAtelier.id}`, {
       method: "PUT",
       headers: headers(),
       body: JSON.stringify(selectedAtelier),
     });
 
-    if (!res.ok) return showToast("Erreur modification");
+    if (!res.ok) {
+      showToast("Erreur modification");
+      return;
+    }
 
     showToast("Atelier modifié");
     loadAteliers();
@@ -64,23 +94,26 @@ function Ateliers({ headers, showToast }) {
   async function deleteAtelier(id) {
     if (!confirm("Supprimer cet atelier ?")) return;
 
-    const res = await fetch(`${API}/ateliers/${id}`, {
+    const res = await fetch(`${API}/api/ateliers/${id}`, {
       method: "DELETE",
       headers: headers(),
     });
 
-    if (!res.ok) return showToast("Erreur suppression");
+    if (!res.ok) {
+      showToast("Erreur suppression");
+      return;
+    }
 
     setSelectedAtelier(null);
-    loadAteliers();
     showToast("Atelier supprimé");
+    loadAteliers();
   }
 
   async function addParticipant() {
     if (!selectedAtelier || !participantId) return;
 
     const res = await fetch(
-      `${API}/ateliers/${selectedAtelier.id}/participants`,
+      `${API}/api/ateliers/${selectedAtelier.id}/participants`,
       {
         method: "POST",
         headers: headers(),
@@ -88,41 +121,45 @@ function Ateliers({ headers, showToast }) {
       }
     );
 
-    if (!res.ok) return showToast("Erreur ajout participant");
+    if (!res.ok) {
+      showToast("Erreur ajout participant");
+      return;
+    }
 
     showToast("Participant ajouté");
+    setParticipantId("");
     loadAteliers();
   }
 
   return (
-    <div style={{ display: "flex", gap: 20 }}>
-      {/* LISTE */}
-      <div style={{ width: "40%" }}>
+    <div className="detail-grid">
+      <section>
         <h2>Ateliers</h2>
 
-        {ateliers.map((a) => (
-          <div
-            key={a.id}
-            onClick={() => setSelectedAtelier(a)}
-            style={{
-              border: "1px solid #ccc",
-              padding: 10,
-              marginBottom: 10,
-              cursor: "pointer",
-            }}
-          >
-            <strong>{a.titre}</strong>
-            <div>{a.date}</div>
-          </div>
-        ))}
-      </div>
+        {loading ? (
+          <p>Chargement...</p>
+        ) : ateliers.length === 0 ? (
+          <p>Aucun atelier trouvé</p>
+        ) : (
+          ateliers.map((a) => (
+            <div
+              key={a.id}
+              onClick={() => setSelectedAtelier(a)}
+              className="atelier-card"
+            >
+              <strong>{a.titre}</strong>
+              <div>{formatDate(a.date)}</div>
+              <div>{a.lieu}</div>
+            </div>
+          ))
+        )}
+      </section>
 
-      {/* DETAIL */}
-      <div style={{ flex: 1 }}>
+      <section>
         {!selectedAtelier ? (
           <p>Clique sur un atelier</p>
         ) : (
-          <div>
+          <div className="detail-atelier">
             <h2>Détail atelier</h2>
 
             <input
@@ -137,14 +174,14 @@ function Ateliers({ headers, showToast }) {
             />
 
             <input
-              value={selectedAtelier.date || ""}
+              type="date"
+              value={formatDate(selectedAtelier.date)}
               onChange={(e) =>
                 setSelectedAtelier({
                   ...selectedAtelier,
                   date: e.target.value,
                 })
               }
-              placeholder="Date"
             />
 
             <input
@@ -157,13 +194,34 @@ function Ateliers({ headers, showToast }) {
               }
               placeholder="Lieu"
             />
-{selectedAtelier && (
-  <>
+
+            <input
+              value={selectedAtelier.intervenant || ""}
+              onChange={(e) =>
+                setSelectedAtelier({
+                  ...selectedAtelier,
+                  intervenant: e.target.value,
+                })
+              }
+              placeholder="Intervenant"
+            />
+
+            <textarea
+              value={selectedAtelier.description || ""}
+              onChange={(e) =>
+                setSelectedAtelier({
+                  ...selectedAtelier,
+                  description: e.target.value,
+                })
+              }
+              placeholder="Description"
+            />
+
             <h3>Participants</h3>
 
             {selectedAtelier.atelier_participants?.length ? (
               selectedAtelier.atelier_participants.map((p) => (
-                <div key={p.id}>
+                <div key={p.id} className="participant">
                   {p.beneficiaires?.nom || "Participant"}
                 </div>
               ))
@@ -180,34 +238,20 @@ function Ateliers({ headers, showToast }) {
             <button onClick={addParticipant}>
               Ajouter le participant
             </button>
-{selectedAtelier && (
-  <>
-    <button
-      onClick={updateAtelier}
-      style={{
-        display: "block",
-        width: "100%",
-        background: "green",
-        color: "white",
-        marginTop: 15,
-        padding: 10,
-      }}
-    >
-      Modifier l’atelier
-    </button>
 
-    <button
-      onClick={() => deleteAtelier(selectedAtelier.id)}
-      style={{
-        display: "block",
-        width: "100%",
-        background: "red",
-        color: "white",
-        marginTop: 10,
-        padding: 10,
-      }}
-    >
-      Supprimer l’atelier
-     </button>
-  </>
-)}
+            <button onClick={updateAtelier}>
+              Modifier l’atelier
+            </button>
+
+            <button
+              className="delete"
+              onClick={() => deleteAtelier(selectedAtelier.id)}
+            >
+              Supprimer l’atelier
+            </button>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
