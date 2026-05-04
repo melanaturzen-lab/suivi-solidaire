@@ -9,7 +9,6 @@ export default function App() {
   function headers() {
     return {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
     };
   }
 
@@ -20,7 +19,21 @@ export default function App() {
   return (
     <div className="app">
       <aside>
-        <button onClick={() => setPage("ateliers")}>Ateliers</button>
+        <button onClick={() => setPage("dashboard")}>
+          Tableau de bord
+        </button>
+        <button onClick={() => setPage("beneficiaires")}>
+          Bénéficiaires
+        </button>
+        <button onClick={() => setPage("accompagnement")}>
+          Accompagnement
+        </button>
+        <button onClick={() => setPage("documents")}>
+          Documents
+        </button>
+        <button onClick={() => setPage("ateliers")}>
+          Ateliers
+        </button>
       </aside>
 
       <main>
@@ -36,40 +49,24 @@ function Ateliers({ headers, showToast }) {
   const [ateliers, setAteliers] = useState([]);
   const [selectedAtelier, setSelectedAtelier] = useState(null);
   const [participantId, setParticipantId] = useState("");
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadAteliers();
   }, []);
 
-  function formatDate(date) {
-    if (!date) return "";
-    return String(date).slice(0, 10);
-  }
-
   async function loadAteliers() {
     try {
-      setLoading(true);
-
       const res = await fetch(`${API}/ateliers`);
-
-      if (!res.ok) {
-        throw new Error("Erreur API ateliers");
-      }
-
       const data = await res.json();
-      const list = Array.isArray(data) ? data : [];
 
-      setAteliers(list);
+      setAteliers(data || []);
 
-      if (!selectedAtelier && list.length > 0) {
-        setSelectedAtelier(list[0]);
+      if (data.length > 0 && !selectedAtelier) {
+        setSelectedAtelier(data[0]); // 👉 sélection automatique
       }
-    } catch (error) {
-      console.error("Erreur loadAteliers:", error);
-      showToast("Impossible de charger les ateliers");
-    } finally {
-      setLoading(false);
+    } catch (err) {
+      console.error(err);
+      showToast("Erreur chargement ateliers");
     }
   }
 
@@ -133,28 +130,24 @@ function Ateliers({ headers, showToast }) {
 
   return (
     <div className="detail-grid">
+      {/* LISTE */}
       <section>
         <h2>Ateliers</h2>
 
-        {loading ? (
-          <p>Chargement...</p>
-        ) : ateliers.length === 0 ? (
-          <p>Aucun atelier trouvé</p>
-        ) : (
-          ateliers.map((a) => (
-            <div
-              key={a.id}
-              onClick={() => setSelectedAtelier(a)}
-              className="atelier-card"
-            >
-              <strong>{a.titre}</strong>
-              <div>{formatDate(a.date)}</div>
-              <div>{a.lieu}</div>
-            </div>
-          ))
-        )}
+        {ateliers.map((a) => (
+          <div
+            key={a.id}
+            className="atelier-card"
+            onClick={() => setSelectedAtelier(a)}
+          >
+            <strong>{a.titre}</strong>
+            <div>{a.date}</div>
+            <div>{a.lieu}</div>
+          </div>
+        ))}
       </section>
 
+      {/* DETAIL */}
       <section>
         {!selectedAtelier ? (
           <p>Clique sur un atelier</p>
@@ -170,12 +163,11 @@ function Ateliers({ headers, showToast }) {
                   titre: e.target.value,
                 })
               }
-              placeholder="Titre"
             />
 
             <input
               type="date"
-              value={formatDate(selectedAtelier.date)}
+              value={selectedAtelier.date?.slice(0, 10) || ""}
               onChange={(e) =>
                 setSelectedAtelier({
                   ...selectedAtelier,
@@ -192,7 +184,6 @@ function Ateliers({ headers, showToast }) {
                   lieu: e.target.value,
                 })
               }
-              placeholder="Lieu"
             />
 
             <input
@@ -203,7 +194,6 @@ function Ateliers({ headers, showToast }) {
                   intervenant: e.target.value,
                 })
               }
-              placeholder="Intervenant"
             />
 
             <textarea
@@ -214,20 +204,15 @@ function Ateliers({ headers, showToast }) {
                   description: e.target.value,
                 })
               }
-              placeholder="Description"
             />
 
             <h3>Participants</h3>
 
-            {selectedAtelier.atelier_participants?.length ? (
-              selectedAtelier.atelier_participants.map((p) => (
-                <div key={p.id} className="participant">
-                  {p.beneficiaires?.nom || "Participant"}
-                </div>
-              ))
-            ) : (
-              <p>Aucun participant</p>
-            )}
+            {selectedAtelier.atelier_participants?.map((p) => (
+              <div key={p.id} className="participant">
+                {p.beneficiaires?.nom || "Participant"}
+              </div>
+            ))}
 
             <input
               value={participantId}
@@ -239,6 +224,7 @@ function Ateliers({ headers, showToast }) {
               Ajouter le participant
             </button>
 
+            {/* 🔥 BOUTONS CORRIGÉS */}
             <button onClick={updateAtelier}>
               Modifier l’atelier
             </button>
